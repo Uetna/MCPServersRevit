@@ -1,4 +1,6 @@
+using System.Globalization;
 using Autodesk.Revit.UI;
+using RevitMCPCommandSet.Utils;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPSDK.API.Interfaces;
 
@@ -80,87 +82,59 @@ namespace RevitMCPCommandSet.Services
         {
             try
             {
-                var uiDoc = app.ActiveUIDocument;
+                var uiDoc = app.ActiveUIDocument
+                            ?? throw new InvalidOperationException("No active document in Revit.");
                 var doc = uiDoc.Document;
                 var activeView = doc.ActiveView;
 
-
-                // 合并所有类别
+                // 合并所有类别. Empty lists mean "use the default categories"; the MCP server
+                // always sends lists, so checking for null alone never applied the defaults.
                 List<string> allCategories = new List<string>();
-                if (_modelCategoryList == null && _annotationCategoryList == null)
+                allCategories.AddRange(_modelCategoryList ?? new List<string>());
+                allCategories.AddRange(_annotationCategoryList ?? new List<string>());
+                if (allCategories.Count == 0)
                 {
                     allCategories.AddRange(_defaultModelCategories);
                     allCategories.AddRange(_defaultAnnotationCategories);
                 }
-                else
+
+                var builtInCategories = new List<BuiltInCategory>();
+                var unknownCategories = new List<string>();
+                foreach (string categoryName in allCategories)
                 {
-                    allCategories.AddRange(_modelCategoryList ?? new List<string>());
-                    allCategories.AddRange(_annotationCategoryList ?? new List<string>());
+                    if (Enum.TryParse(categoryName, out BuiltInCategory category))
+                        builtInCategories.Add(category);
+                    else
+                        unknownCategories.Add(categoryName);
                 }
 
-                // 获取当前视图中的所有元素
-                var collector = new FilteredElementCollector(doc, activeView.Id)
-                    .WhereElementIsNotElementType();
+                if (builtInCategories.Count == 0)
+                    throw new ArgumentException($"Unknown categories: {string.Join(", ", unknownCategories)}. Use BuiltInCategory names such as OST_Walls.");
 
-                // 获取所有元素
-                IList<Element> elements = collector.ToElements();
+                // One collector pass with the category filter evaluated inside Revit;
+                // hidden-element check and limit are applied lazily while enumerating.
+                IEnumerable<Element> elements = new FilteredElementCollector(doc, activeView.Id)
+                    .WhereElementIsNotElementType()
+                    .WherePasses(new ElementMulticategoryFilter(builtInCategories));
 
-                // 按类别筛选
-                if (allCategories.Count > 0)
-                {
-                    // 转换字符串类别为枚举
-                    List<BuiltInCategory> builtInCategories = new List<BuiltInCategory>();
-                    foreach (string categoryName in allCategories)
-                    {
-                        if (Enum.TryParse(categoryName, out BuiltInCategory category))
-                        {
-                            builtInCategories.Add(category);
-                        }
-                    }
-                    // 如果成功解析了类别，则使用类别过滤器
-                    if (builtInCategories.Count > 0)
-                    {
-                        ElementMulticategoryFilter categoryFilter = new ElementMulticategoryFilter(builtInCategories);
-                        elements = new FilteredElementCollector(doc, activeView.Id)
-                            .WhereElementIsNotElementType()
-                            .WherePasses(categoryFilter)
-                            .ToElements();
-                    }
-                }
-
-                // 过滤隐藏的元素
                 if (!_includeHidden)
-                {
-                    elements = elements.Where(e => !e.IsHidden(activeView)).ToList();
-                }
+                    elements = elements.Where(e => !e.IsHidden(activeView));
 
-                // 限制返回数量
-                if (_limit > 0 && elements.Count > _limit)
-                {
-                    elements = elements.Take(_limit).ToList();
-                }
+                if (_limit > 0)
+                    elements = elements.Take(_limit);
 
-                // 构建结果
                 var elementInfos = elements.Select(e => new ElementInfo
                 {
-#if REVIT2024_OR_GREATER
-                    Id = e.Id.Value,
-#else
-                    Id = e.Id.IntegerValue,
-#endif
+                    Id = e.Id.GetValue(),
                     UniqueId = e.UniqueId,
                     Name = e.Name,
-                    Category = e.Category?.Name ?? "unknow",
-                    Properties = GetElementProperties(e)
+                    Category = e.Category?.Name ?? "unknown",
+                    Properties = GetElementProperties(doc, e)
                 }).ToList();
 
                 ResultInfo = new ViewElementsResult
                 {
-#if REVIT2024_OR_GREATER
-                    ViewId = activeView.Id.Value,
-#else
-                    ViewId = activeView.Id.IntegerValue,
-#endif
+                    ViewId = activeView.Id.GetValue(),
                     ViewName = activeView.Name,
                     TotalElementsInView = new FilteredElementCollector(doc, activeView.Id).GetElementCount(),
                     FilteredElementCount = elementInfos.Count,
@@ -178,57 +152,59 @@ namespace RevitMCPCommandSet.Services
             }
         }
 
-        private Dictionary<string, string> GetElementProperties(Element element)
-        {
-            var properties = new Dictionary<string, string>();
+        private const double FeetToMm = 304.8;
 
-            // 添加通用属性
-#if REVIT2024_OR_GREATER
-            properties.Add("ElementId", element.Id.Value.ToString());
-#else
-            properties.Add("ElementId", element.Id.IntegerValue.ToString());
-#endif
-            if (element.Location != null)
+        private static string Mm(double feet) => (feet * FeetToMm).ToString("F1", CultureInfo.InvariantCulture);
+
+        /// <summary>
+        /// Basic element data. Coordinates and lengths are in millimetres. Parameters are read by
+        /// BuiltInParameter, so the result does not depend on the Revit UI language.
+        /// </summary>
+        private static Dictionary<string, string> GetElementProperties(Document doc, Element element)
+        {
+            var properties = new Dictionary<string, string>
             {
-                if (element.Location is LocationPoint locationPoint)
-                {
-                    var point = locationPoint.Point;
-                    properties.Add("LocationX", point.X.ToString("F2"));
-                    properties.Add("LocationY", point.Y.ToString("F2"));
-                    properties.Add("LocationZ", point.Z.ToString("F2"));
-                }
-                else if (element.Location is LocationCurve locationCurve)
-                {
-                    var curve = locationCurve.Curve;
-                    properties.Add("Start", $"{curve.GetEndPoint(0).X:F2}, {curve.GetEndPoint(0).Y:F2}, {curve.GetEndPoint(0).Z:F2}");
-                    properties.Add("End", $"{curve.GetEndPoint(1).X:F2}, {curve.GetEndPoint(1).Y:F2}, {curve.GetEndPoint(1).Z:F2}");
-                    properties.Add("Length", curve.Length.ToString("F2"));
-                }
+                ["ElementId"] = element.Id.GetValue().ToString()
+            };
+
+            if (element.Location is LocationPoint locationPoint)
+            {
+                var point = locationPoint.Point;
+                properties["LocationX"] = Mm(point.X);
+                properties["LocationY"] = Mm(point.Y);
+                properties["LocationZ"] = Mm(point.Z);
+            }
+            else if (element.Location is LocationCurve locationCurve)
+            {
+                var curve = locationCurve.Curve;
+                var start = curve.GetEndPoint(0);
+                var end = curve.GetEndPoint(1);
+                properties["Start"] = $"{Mm(start.X)}, {Mm(start.Y)}, {Mm(start.Z)}";
+                properties["End"] = $"{Mm(end.X)}, {Mm(end.Y)}, {Mm(end.Z)}";
+                properties["Length"] = Mm(curve.Length);
             }
 
-            // 获取常用参数值
-            var commonParams = new[] { "Comments", "Mark", "Level", "Family", "Type" };
-            foreach (var paramName in commonParams)
+            AddString(properties, "Comments", element.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS));
+            AddString(properties, "Mark", element.get_Parameter(BuiltInParameter.ALL_MODEL_MARK));
+
+            if (element.LevelId != ElementId.InvalidElementId && doc.GetElement(element.LevelId) is Level level)
+                properties["Level"] = level.Name;
+
+            if (doc.GetElement(element.GetTypeId()) is ElementType elementType)
             {
-                Parameter param = element.LookupParameter(paramName);
-                if (param != null && !param.IsReadOnly)
-                {
-                    if (param.StorageType == StorageType.String)
-                        properties.Add(paramName, param.AsString() ?? "");
-                    else if (param.StorageType == StorageType.Double)
-                        properties.Add(paramName, param.AsDouble().ToString("F2"));
-                    else if (param.StorageType == StorageType.Integer)
-                        properties.Add(paramName, param.AsInteger().ToString());
-                    else if (param.StorageType == StorageType.ElementId)
-#if REVIT2024_OR_GREATER
-                        properties.Add(paramName, param.AsElementId().Value.ToString());
-#else
-                        properties.Add(paramName, param.AsElementId().IntegerValue.ToString());
-#endif
-                }
+                if (!string.IsNullOrEmpty(elementType.FamilyName))
+                    properties["Family"] = elementType.FamilyName;
+                properties["Type"] = elementType.Name;
             }
 
             return properties;
+        }
+
+        private static void AddString(Dictionary<string, string> properties, string key, Parameter parameter)
+        {
+            var value = parameter?.AsString();
+            if (!string.IsNullOrEmpty(value))
+                properties[key] = value;
         }
 
         public string GetName()

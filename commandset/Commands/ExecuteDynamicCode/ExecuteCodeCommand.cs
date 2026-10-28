@@ -1,6 +1,7 @@
 ﻿using Autodesk.Revit.UI;
 using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Base;
+using RevitMCPSDK.Exceptions;
 
 namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
 {
@@ -44,12 +45,17 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
                 }
                 else
                 {
-                    throw new TimeoutException("代码执行超时");
+                    throw new CommandExecutionException(
+                        "Code execution timed out after 60 s. It may still be running in Revit.", ErrorTimeout);
                 }
+            }
+            catch (CommandExecutionException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                throw new Exception($"执行代码失败: {ex.Message}", ex);
+                throw new Exception($"Code execution failed: {ex.Message}", ex);
             }
         }
     }

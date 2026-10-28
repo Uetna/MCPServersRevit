@@ -1,10 +1,14 @@
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
@@ -16,6 +20,19 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
     {
         public const string TransactionModeAuto = "auto";
         public const string TransactionModeNone = "none";
+
+        // Compiled snippets are cached by source hash: assemblies cannot be unloaded from
+        // the Revit process, so recompiling the same snippet (retries) would leak memory.
+        private const int MaxCachedSnippets = 64;
+        private static readonly Dictionary<string, MethodInfo> CompiledSnippets = new Dictionary<string, MethodInfo>();
+        private static List<MetadataReference> _cachedReferences;
+        private static int _cachedAssemblyCount;
+
+        private static readonly JsonSerializer ResultSerializer = JsonSerializer.Create(new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            MaxDepth = 8
+        });
 
         // 代码执行参数
         private string _generatedCode;
@@ -57,41 +74,41 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         {
             try
             {
-                var doc = app.ActiveUIDocument.Document;
-                ResultInfo = new ExecutionResultInfo();
+                var doc = app.ActiveUIDocument?.Document
+                          ?? throw new InvalidOperationException("No active document in Revit.");
+                ResultInfo = null;
+
+                // Compile before opening a transaction: compilation errors must not touch the model.
+                var entryPoint = GetOrCompile(_generatedCode);
 
                 object result;
                 if (_transactionMode == TransactionModeNone)
                 {
-                    result = CompileAndExecuteCode(
-                        code: _generatedCode,
-                        doc: doc,
-                        parameters: _executionParameters
-                    );
+                    result = Invoke(entryPoint, doc, _executionParameters);
                 }
                 else
                 {
                     using (var transaction = new Transaction(doc, "执行AI代码"))
                     {
                         transaction.Start();
+                        result = Invoke(entryPoint, doc, _executionParameters);
 
-                        result = CompileAndExecuteCode(
-                            code: _generatedCode,
-                            doc: doc,
-                            parameters: _executionParameters
-                        );
-
-                        transaction.Commit();
+                        var status = transaction.Commit();
+                        if (status != TransactionStatus.Committed)
+                            throw new InvalidOperationException(
+                                $"Revit did not commit the transaction (status: {status}). See the returned warnings for the reason.");
                     }
                 }
 
-                ResultInfo.Success = true;
-                ResultInfo.Result = JsonConvert.SerializeObject(result);
+                ResultInfo = new ExecutionResultInfo
+                {
+                    Success = true,
+                    Result = ToJson(result)
+                };
             }
             catch (Exception ex)
             {
-                ResultInfo.Success = false;
-                ResultInfo.ErrorMessage = $"执行失败: {ex.Message}";
+                LastError = ex;
             }
             finally
             {
@@ -100,9 +117,72 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
             }
         }
 
-        private object CompileAndExecuteCode(string code, Document doc, object[] parameters)
+        private static object Invoke(MethodInfo entryPoint, Document doc, object[] parameters)
         {
-            // 包装代码以规范入口点
+            try
+            {
+                return entryPoint.Invoke(null, new object[] { doc, parameters });
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                // Surface the snippet's own exception (with its line, thanks to the PDB) instead of
+                // "Exception has been thrown by the target of an invocation".
+                var inner = ex.InnerException;
+                var location = FindSnippetFrame(inner);
+                throw new InvalidOperationException(
+                    $"{inner.GetType().Name}: {inner.Message}{(location != null ? $" ({location})" : "")}", inner);
+            }
+        }
+
+        private static string FindSnippetFrame(Exception ex)
+        {
+            var trace = new System.Diagnostics.StackTrace(ex, true);
+            foreach (var frame in trace.GetFrames() ?? Array.Empty<System.Diagnostics.StackFrame>())
+            {
+                if (frame.GetMethod()?.DeclaringType?.FullName == "AIGeneratedCode.CodeExecutor" && frame.GetFileLineNumber() > 0)
+                    return $"line {frame.GetFileLineNumber()}";
+            }
+            return null;
+        }
+
+        private static JToken ToJson(object result)
+        {
+            if (result == null) return JValue.CreateNull();
+            try
+            {
+                return JToken.FromObject(result, ResultSerializer);
+            }
+            catch (Exception)
+            {
+                // Revit API objects are often not serializable; fall back to their text form.
+                return new JValue(result.ToString());
+            }
+        }
+
+        private static MethodInfo GetOrCompile(string code)
+        {
+            var key = Hash(code);
+            lock (CompiledSnippets)
+            {
+                if (CompiledSnippets.TryGetValue(key, out var cached))
+                    return cached;
+            }
+
+            var entryPoint = Compile(code);
+
+            lock (CompiledSnippets)
+            {
+                if (CompiledSnippets.Count >= MaxCachedSnippets)
+                    CompiledSnippets.Clear();
+                CompiledSnippets[key] = entryPoint;
+            }
+            return entryPoint;
+        }
+
+        private static MethodInfo Compile(string code)
+        {
+            // 包装代码以规范入口点. "#line 1" makes compiler and runtime line numbers refer to the
+            // user's snippet instead of the wrapper.
             var wrappedCode = $@"
 using System;
 using System.Linq;
@@ -116,50 +196,75 @@ namespace AIGeneratedCode
     {{
         public static object Execute(Document document, object[] parameters)
         {{
-            // 用户代码入口
-            {code}
+#line 1 ""snippet.cs""
+{code}
+#line default
         }}
     }}
 }}";
 
-            var syntaxTree = CSharpSyntaxTree.ParseText(wrappedCode);
+            var syntaxTree = CSharpSyntaxTree.ParseText(wrappedCode, path: "snippet.cs", encoding: Encoding.UTF8);
 
-            // 添加必要的程序集引用（引用所有已加载的程序集）
-            var references = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(a => MetadataReference.CreateFromFile(a.Location))
-                .Cast<MetadataReference>()
-                .ToList();
-
-            // 编译代码
             var compilation = CSharpCompilation.Create(
-                "AIGeneratedCode",
+                "AIGeneratedCode_" + Guid.NewGuid().ToString("N"),
                 syntaxTrees: new[] { syntaxTree },
-                references: references,
-                options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                references: GetReferences(),
+                options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Debug)
             );
 
-            using (var ms = new MemoryStream())
+            using (var peStream = new MemoryStream())
+            using (var pdbStream = new MemoryStream())
             {
-                var result = compilation.Emit(ms);
+                var result = compilation.Emit(peStream, pdbStream,
+                    options: new EmitOptions(debugInformationFormat: DebugInformationFormat.PortablePdb));
 
                 // 处理编译结果
                 if (!result.Success)
                 {
                     var errors = string.Join("\n", result.Diagnostics
                         .Where(d => d.Severity == DiagnosticSeverity.Error)
-                        .Select(d => $"Line {d.Location.GetLineSpan().StartLinePosition.Line}: {d.GetMessage()}"));
-                    throw new Exception($"代码编译错误:\n{errors}");
+                        .Select(d => $"Line {d.Location.GetMappedLineSpan().StartLinePosition.Line + 1}: {d.Id} {d.GetMessage()}"));
+                    throw new InvalidOperationException($"Compilation failed:\n{errors}");
                 }
 
-                // 反射调用执行方法
-                ms.Seek(0, SeekOrigin.Begin);
-                var assembly = Assembly.Load(ms.ToArray());
-                var executorType = assembly.GetType("AIGeneratedCode.CodeExecutor");
-                var executeMethod = executorType.GetMethod("Execute");
-
-                return executeMethod.Invoke(null, new object[] { doc, parameters });
+                var assembly = Assembly.Load(peStream.ToArray(), pdbStream.ToArray());
+                return assembly.GetType("AIGeneratedCode.CodeExecutor").GetMethod("Execute");
             }
+        }
+
+        /// <summary>
+        /// References to every loaded assembly, rebuilt only when new assemblies were loaded.
+        /// Creating them reads hundreds of files, which used to happen on every call.
+        /// </summary>
+        private static List<MetadataReference> GetReferences()
+        {
+            // Snippet assemblies are loaded from bytes (no Location), so they do not invalidate the cache.
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .ToList();
+            lock (CompiledSnippets)
+            {
+                if (_cachedReferences != null && _cachedAssemblyCount == assemblies.Count)
+                    return _cachedReferences;
+            }
+
+            var references = assemblies
+                .GroupBy(a => a.Location, StringComparer.OrdinalIgnoreCase)
+                .Select(g => (MetadataReference)MetadataReference.CreateFromFile(g.Key))
+                .ToList();
+
+            lock (CompiledSnippets)
+            {
+                _cachedReferences = references;
+                _cachedAssemblyCount = assemblies.Count;
+            }
+            return references;
+        }
+
+        private static string Hash(string text)
+        {
+            using (var sha = SHA256.Create())
+                return Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? string.Empty)));
         }
 
         public string GetName()
@@ -174,8 +279,9 @@ namespace AIGeneratedCode
         [JsonProperty("success")]
         public bool Success { get; set; }
 
+        /// <summary>Value returned by the snippet, as JSON (no longer a JSON string inside JSON).</summary>
         [JsonProperty("result")]
-        public string Result { get; set; }
+        public JToken Result { get; set; }
 
         [JsonProperty("errorMessage")]
         public string ErrorMessage { get; set; } = string.Empty;

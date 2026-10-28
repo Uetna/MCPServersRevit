@@ -32,7 +32,7 @@ namespace RevitMCPCommandSet.Services.AnnotationComponents;
 /// <summary>
 ///     Handles creation of dimension elements in Revit
 /// </summary>
-public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
 {
     #region Fields
 
@@ -40,6 +40,14 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
     private UIDocument UiDoc => _uiApp.ActiveUIDocument;
     private Document Doc => UiDoc.Document;
     private readonly ManualResetEvent _resetEvent = new(false);
+
+    public Exception LastError { get; private set; }
+
+    public void PrepareForRaise()
+    {
+        LastError = null;
+        _resetEvent.Reset();
+    }
     private const double MILLIMETERS_TO_FEET = 1.0 / 304.8;
 
     #endregion
@@ -220,7 +228,7 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
                 Message = $"Error creating dimensions: {ex.Message}",
                 Response = new List<int>()
             };
-            TaskDialog.Show("Error", $"Error creating dimensions: {ex.Message}");
+            LastError = ex;
         }
         finally
         {
@@ -236,7 +244,6 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
     /// <returns>True if operation completed within timeout</returns>
     public bool WaitForCompletion(int timeoutMilliseconds = 10000)
     {
-        _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
     }
 
@@ -464,7 +471,6 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
         catch (Exception ex)
         {
             // Log error but continue processing
-            TaskDialog.Show("Debug", $"Error finding reference at point: {ex.Message}");
         }
 
         return null;

@@ -4,7 +4,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class GetCurrentViewElementsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class GetCurrentViewElementsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         // 默认模型类别列表
         private readonly List<string> _defaultModelCategories = new List<string>
@@ -51,6 +51,14 @@ namespace RevitMCPCommandSet.Services
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
+
         // 设置查询参数
         public void SetQueryParameters(List<string> modelCategoryList, List<string> annotationCategoryList, bool includeHidden, int limit)
         {
@@ -65,7 +73,6 @@ namespace RevitMCPCommandSet.Services
         // 实现IWaitableExternalEventHandler接口
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 
@@ -162,7 +169,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("error", ex.Message);
+                LastError = ex;
             }
             finally
             {

@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class OperateElementCommand : ExternalEventCommandBase
+    public class OperateElementCommand : McpCommandBase
     {
         private OperateElementEventHandler _handler => (OperateElementEventHandler)Handler;
 
@@ -29,7 +29,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

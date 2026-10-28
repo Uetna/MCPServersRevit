@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class OperateElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class OperateElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
@@ -21,6 +21,14 @@ namespace RevitMCPCommandSet.Services
         /// 事件等待对象
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
         /// <summary>
         /// 创建数据（传入数据）
         /// </summary>
@@ -73,7 +81,6 @@ namespace RevitMCPCommandSet.Services
         /// <returns>操作是否在超时前完成</returns>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

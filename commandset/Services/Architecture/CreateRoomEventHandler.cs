@@ -40,7 +40,7 @@ namespace RevitMCPCommandSet.Services.Architecture
     /// <summary>
     /// Event handler for creating rooms in Revit
     /// </summary>
-    public class CreateRoomEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class CreateRoomEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication _uiApp;
         private UIDocument _uiDoc => _uiApp.ActiveUIDocument;
@@ -50,6 +50,14 @@ namespace RevitMCPCommandSet.Services.Architecture
         /// Event wait object for synchronization
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         /// <summary>
         /// Room creation data (input)
@@ -276,7 +284,7 @@ namespace RevitMCPCommandSet.Services.Architecture
                     Success = false,
                     Message = $"Error creating rooms: {ex.Message}",
                 };
-                TaskDialog.Show("Error", $"Error creating rooms: {ex.Message}");
+                LastError = ex;
             }
             finally
             {
@@ -451,7 +459,6 @@ namespace RevitMCPCommandSet.Services.Architecture
         /// <returns>True if completed before timeout</returns>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

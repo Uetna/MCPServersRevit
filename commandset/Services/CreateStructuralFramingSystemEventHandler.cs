@@ -8,7 +8,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class CreateStructuralFramingSystemEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class CreateStructuralFramingSystemEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
@@ -18,6 +18,14 @@ namespace RevitMCPCommandSet.Services
         /// Event synchronization object
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         /// <summary>
         /// Beam system creation parameters
@@ -272,7 +280,7 @@ namespace RevitMCPCommandSet.Services
                     Message = errorDetails,
                     Response = null
                 };
-                TaskDialog.Show("Error", errorDetails);
+                LastError = ex;
             }
             finally
             {
@@ -510,7 +518,6 @@ namespace RevitMCPCommandSet.Services
         /// </summary>
         public bool WaitForCompletion(int timeoutMilliseconds = 15000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

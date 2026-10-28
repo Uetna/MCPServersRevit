@@ -4,7 +4,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class GetCurrentViewInfoEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class GetCurrentViewInfoEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         // 执行结果
         public CurrentViewInfo ResultInfo { get; private set; }
@@ -13,10 +13,17 @@ namespace RevitMCPCommandSet.Services
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
+
         // 实现IWaitableExternalEventHandler接口
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 
@@ -45,7 +52,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("error", "获取信息失败");
+                LastError = ex;
             }
             finally
             {

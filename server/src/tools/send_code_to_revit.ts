@@ -44,15 +44,13 @@ export function registerSendCodeToRevitTool(server: McpServer) {
             {
               type: "text",
               text: `Code execution successful!\nResult: ${JSON.stringify(
-                response,
-                null,
-                2
-              )}`,
+                response)}`,
             },
           ],
         };
       } catch (error) {
         return {
+          isError: true,
           content: [
             {
               type: "text",

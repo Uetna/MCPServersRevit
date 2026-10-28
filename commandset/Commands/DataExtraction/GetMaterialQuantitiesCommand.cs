@@ -5,7 +5,7 @@ using RevitMCPSDK.API.Base;
 
 namespace RevitMCPCommandSet.Commands.DataExtraction
 {
-    public class GetMaterialQuantitiesCommand : ExternalEventCommandBase
+    public class GetMaterialQuantitiesCommand : McpCommandBase
     {
         private GetMaterialQuantitiesEventHandler _handler => (GetMaterialQuantitiesEventHandler)Handler;
 
@@ -16,7 +16,7 @@ namespace RevitMCPCommandSet.Commands.DataExtraction
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

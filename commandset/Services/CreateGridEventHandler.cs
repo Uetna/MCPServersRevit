@@ -6,7 +6,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class CreateGridEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class CreateGridEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
@@ -16,6 +16,14 @@ namespace RevitMCPCommandSet.Services
         /// Event synchronization object
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         /// <summary>
         /// Grid creation parameters
@@ -206,7 +214,7 @@ namespace RevitMCPCommandSet.Services
                     Message = $"Failed to create grids: {ex.Message}",
                     Response = null
                 };
-                TaskDialog.Show("Error", $"Failed to create grids: {ex.Message}");
+                LastError = ex;
             }
             finally
             {
@@ -323,7 +331,6 @@ namespace RevitMCPCommandSet.Services
         /// </summary>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

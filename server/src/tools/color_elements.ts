@@ -68,6 +68,7 @@ export function registerColorElementsTool(server: McpServer) {
           }
         } catch (error) {
           return {
+          isError: true,
             content: [
               {
                 type: "text",

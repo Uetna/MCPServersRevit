@@ -1,147 +1,208 @@
 import * as net from "net";
 
-export class RevitClientConnection {
-  host: string;
-  port: number;
-  socket: net.Socket;
-  isConnected: boolean = false;
-  responseCallbacks: Map<string, (response: string) => void> = new Map();
-  buffer: string = "";
+export interface RevitClientOptions {
+  connectTimeoutMs?: number;
+  requestTimeoutMs?: number;
+}
 
-  constructor(host: string, port: number) {
+interface PendingRequest {
+  method: string;
+  resolve: (value: any) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+/** Error returned by the Revit plugin (JSON-RPC error or a result with success=false). */
+export class RevitCommandError extends Error {
+  constructor(message: string, public readonly code?: number, public readonly data?: unknown) {
+    super(message);
+    this.name = "RevitCommandError";
+  }
+}
+
+/**
+ * Persistent JSON-RPC connection to the Revit plugin.
+ *
+ * Wire format: one JSON object per line (NDJSON). Responses are matched to requests by id,
+ * so several requests may be in flight; the plugin executes them one at a time.
+ * The socket is opened lazily and re-opened after it drops.
+ */
+export class RevitClientConnection {
+  readonly host: string;
+  readonly port: number;
+  private readonly connectTimeoutMs: number;
+  private readonly requestTimeoutMs: number;
+
+  private socket: net.Socket | null = null;
+  private connecting: Promise<net.Socket> | null = null;
+  private buffer = "";
+  private nextId = 1;
+  private readonly pending = new Map<string, PendingRequest>();
+
+  constructor(host: string, port: number, options: RevitClientOptions = {}) {
     this.host = host;
     this.port = port;
-    this.socket = new net.Socket();
-    this.setupSocketListeners();
+    this.connectTimeoutMs = options.connectTimeoutMs ?? 5000;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? 150000;
   }
 
-  private setupSocketListeners(): void {
-    this.socket.on("connect", () => {
-      this.isConnected = true;
-    });
-
-    this.socket.on("data", (data) => {
-      // 将接收到的数据添加到缓冲区
-      const dataString = data.toString();
-      this.buffer += dataString;
-
-      // 尝试解析完整的JSON响应
-      this.processBuffer();
-    });
-
-    this.socket.on("close", () => {
-      this.isConnected = false;
-    });
-
-    this.socket.on("error", (error) => {
-      console.error("RevitClientConnection error:", error);
-      this.isConnected = false;
-    });
+  get isConnected(): boolean {
+    return this.socket !== null && !this.socket.destroyed;
   }
 
-  private processBuffer(): void {
-    try {
-      // 尝试解析JSON
-      const response = JSON.parse(this.buffer);
-      // 如果成功解析，处理响应并清空缓冲区
-      this.handleResponse(this.buffer);
-      this.buffer = "";
-    } catch (e) {
-      // 如果解析失败，可能是因为数据不完整，继续等待更多数据
-    }
+  /** Opens the connection if needed. Concurrent callers share one attempt. */
+  async connect(): Promise<void> {
+    await this.ensureSocket();
   }
 
-  public connect(): boolean {
-    if (this.isConnected) {
-      return true;
-    }
-
-    try {
-      this.socket.connect(this.port, this.host);
-      return true;
-    } catch (error) {
-      console.error("Failed to connect:", error);
-      return false;
-    }
+  disconnect(): void {
+    const socket = this.socket;
+    this.socket = null;
+    socket?.destroy();
+    this.failAll(new Error("Connection to Revit closed"));
   }
 
-  public disconnect(): void {
-    this.socket.end();
-    this.isConnected = false;
-  }
+  async sendCommand(method: string, params: any = {}, timeoutMs?: number): Promise<any> {
+    const socket = await this.ensureSocket();
+    const id = `${Date.now()}-${this.nextId++}`;
+    const payload = JSON.stringify({ jsonrpc: "2.0", method, params, id }) + "\n";
+    const timeout = timeoutMs ?? this.requestTimeoutMs;
 
-  private generateRequestId(): string {
-    return Date.now().toString() + Math.random().toString().substring(2, 8);
-  }
-
-  private handleResponse(responseData: string): void {
-    try {
-      const response = JSON.parse(responseData);
-      // 从响应中获取ID
-      const requestId = response.id || "default";
-
-      const callback = this.responseCallbacks.get(requestId);
-      if (callback) {
-        callback(responseData);
-        this.responseCallbacks.delete(requestId);
-      }
-    } catch (error) {
-      console.error("Error parsing response:", error);
-    }
-  }
-
-  public sendCommand(command: string, params: any = {}): Promise<any> {
     return new Promise((resolve, reject) => {
-      try {
-        if (!this.isConnected) {
-          this.connect();
+      const timer = setTimeout(() => {
+        if (this.pending.delete(id)) {
+          reject(new Error(`Command '${method}' timed out after ${Math.round(timeout / 1000)} s waiting for Revit`));
         }
+      }, timeout);
 
-        // 生成请求ID
-        const requestId = this.generateRequestId();
-
-        // 创建符合JSON-RPC标准的请求对象
-        const commandObj = {
-          jsonrpc: "2.0",
-          method: command,
-          params: params,
-          id: requestId,
-        };
-
-        // 存储回调函数
-        this.responseCallbacks.set(requestId, (responseData) => {
-          try {
-            const response = JSON.parse(responseData);
-            if (response.error) {
-              reject(
-                new Error(response.error.message || "Unknown error from Revit")
-              );
-            } else {
-              resolve(response.result);
-            }
-          } catch (error) {
-            if (error instanceof Error) {
-              reject(new Error(`Failed to parse response: ${error.message}`));
-            } else {
-              reject(new Error(`Failed to parse response: ${String(error)}`));
-            }
-          }
-        });
-
-        // 发送命令
-        const commandString = JSON.stringify(commandObj);
-        this.socket.write(commandString);
-
-        // 设置超时
-        setTimeout(() => {
-          if (this.responseCallbacks.has(requestId)) {
-            this.responseCallbacks.delete(requestId);
-            reject(new Error(`Command timed out after 2 minutes: ${command}`));
-          }
-        }, 120000); // 2分钟超时
-      } catch (error) {
-        reject(error);
-      }
+      this.pending.set(id, { method, resolve, reject, timer });
+      socket.write(payload, (error) => {
+        if (error) this.settle(id, undefined, new Error(`Failed to send '${method}' to Revit: ${error.message}`));
+      });
     });
+  }
+
+  private ensureSocket(): Promise<net.Socket> {
+    if (this.isConnected) return Promise.resolve(this.socket!);
+    if (this.connecting) return this.connecting;
+
+    this.connecting = new Promise<net.Socket>((resolve, reject) => {
+      const socket = net.createConnection({ host: this.host, port: this.port });
+      socket.setNoDelay(true);
+      socket.setEncoding("utf8");
+
+      const timer = setTimeout(() => {
+        socket.destroy();
+        reject(new Error(`Timed out connecting to Revit at ${this.host}:${this.port}`));
+      }, this.connectTimeoutMs);
+
+      socket.once("connect", () => {
+        clearTimeout(timer);
+        this.buffer = "";
+        this.socket = socket;
+        resolve(socket);
+      });
+
+      socket.on("data", (chunk: string) => this.onData(chunk));
+
+      socket.on("error", (error: NodeJS.ErrnoException) => {
+        clearTimeout(timer);
+        if (this.socket !== socket) {
+          reject(
+            new Error(
+              `Cannot connect to Revit at ${this.host}:${this.port} (${error.code ?? error.message}). ` +
+                "Make sure Revit is running and the MCP service is switched on (Add-Ins > Revit MCP Switch)."
+            )
+          );
+        }
+      });
+
+      socket.on("close", () => {
+        if (this.socket === socket) {
+          this.socket = null;
+          this.failAll(new Error("Connection to Revit was closed before the response arrived"));
+        }
+      });
+    }).finally(() => {
+      this.connecting = null;
+    });
+
+    return this.connecting;
+  }
+
+  private onData(chunk: string): void {
+    this.buffer += chunk;
+
+    let newline: number;
+    while ((newline = this.buffer.indexOf("\n")) >= 0) {
+      const line = this.buffer.slice(0, newline).trim();
+      this.buffer = this.buffer.slice(newline + 1);
+      if (line) this.handleMessage(line);
+    }
+
+    // Older plugins answer without a trailing newline: accept a complete JSON object as-is.
+    const rest = this.buffer.trim();
+    if (rest.endsWith("}")) {
+      try {
+        JSON.parse(rest);
+        this.buffer = "";
+        this.handleMessage(rest);
+      } catch {
+        // incomplete, wait for more data
+      }
+    }
+  }
+
+  private handleMessage(line: string): void {
+    let response: any;
+    try {
+      response = JSON.parse(line);
+    } catch (error) {
+      console.error("Invalid JSON from Revit:", line.slice(0, 200));
+      return;
+    }
+
+    const id = response?.id != null ? String(response.id) : undefined;
+    if (!id || !this.pending.has(id)) {
+      // Error responses for unparseable requests carry no id; fail the oldest request instead of hanging.
+      if (!id && response?.error && this.pending.size > 0) {
+        const [firstId] = this.pending.keys();
+        this.settle(firstId, undefined, new RevitCommandError(response.error.message ?? "Unknown error from Revit", response.error.code));
+      }
+      return;
+    }
+
+    if (response.error) {
+      this.settle(id, undefined, new RevitCommandError(response.error.message || "Unknown error from Revit", response.error.code, response.error.data));
+      return;
+    }
+
+    let result = response.result;
+    if (result && typeof result === "object" && (result.success === false || result.Success === false)) {
+      const message = result.message ?? result.Message ?? result.errorMessage ?? result.ErrorMessage ?? JSON.stringify(result);
+      this.settle(id, undefined, new RevitCommandError(String(message), undefined, result));
+      return;
+    }
+
+    if (Array.isArray(response.warnings) && response.warnings.length > 0) {
+      result = result && typeof result === "object" && !Array.isArray(result)
+        ? { ...result, revitWarnings: response.warnings }
+        : { result, revitWarnings: response.warnings };
+    }
+
+    this.settle(id, result);
+  }
+
+  private settle(id: string, result: any, error?: Error): void {
+    const request = this.pending.get(id);
+    if (!request) return;
+    this.pending.delete(id);
+    clearTimeout(request.timer);
+    if (error) request.reject(error);
+    else request.resolve(result);
+  }
+
+  private failAll(error: Error): void {
+    for (const id of [...this.pending.keys()]) this.settle(id, undefined, error);
   }
 }

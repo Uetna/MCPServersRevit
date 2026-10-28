@@ -6,7 +6,7 @@ using RevitMCPCommandSet.Services;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class CreateSurfaceElementCommand : ExternalEventCommandBase
+    public class CreateSurfaceElementCommand : McpCommandBase
     {
         private CreateSurfaceElementEventHandler _handler => (CreateSurfaceElementEventHandler)Handler;
 
@@ -24,7 +24,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

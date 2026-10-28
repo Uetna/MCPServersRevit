@@ -5,7 +5,7 @@ using RevitMCPCommandSet.Services;
 
 namespace RevitMCPCommandSet.Commands.Test
 {
-    public class SayHelloCommand : ExternalEventCommandBase
+    public class SayHelloCommand : McpCommandBase
     {
         private static readonly object _executionLock = new object();
         private SayHelloEventHandler _handler => (SayHelloEventHandler)Handler;
@@ -17,7 +17,7 @@ namespace RevitMCPCommandSet.Commands.Test
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             lock (_executionLock)
             {

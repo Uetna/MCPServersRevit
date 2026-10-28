@@ -6,7 +6,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services.DataExtraction
 {
-    public class ExportRoomDataEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class ExportRoomDataEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private bool _includeUnplacedRooms;
         private bool _includeNotEnclosedRooms;
@@ -14,6 +14,14 @@ namespace RevitMCPCommandSet.Services.DataExtraction
         public ExportRoomDataResult ResultInfo { get; private set; }
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         public void SetParameters(bool includeUnplacedRooms = false, bool includeNotEnclosedRooms = false)
         {
@@ -25,7 +33,6 @@ namespace RevitMCPCommandSet.Services.DataExtraction
 
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

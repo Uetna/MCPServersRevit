@@ -5,7 +5,7 @@ using RevitMCPSDK.API.Base;
 
 namespace RevitMCPCommandSet.Commands.Access
 {
-    public class GetAvailableFamilyTypesCommand : ExternalEventCommandBase
+    public class GetAvailableFamilyTypesCommand : McpCommandBase
     {
         private static readonly object _executionLock = new object();
         private GetAvailableFamilyTypesEventHandler _handler => (GetAvailableFamilyTypesEventHandler)Handler;
@@ -17,7 +17,7 @@ namespace RevitMCPCommandSet.Commands.Access
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             lock (_executionLock)
             {

@@ -5,7 +5,7 @@ using RevitMCPSDK.API.Base;
 
 namespace RevitMCPCommandSet.Commands.Access
 {
-    public class GetCurrentViewElementsCommand : ExternalEventCommandBase
+    public class GetCurrentViewElementsCommand : McpCommandBase
     {
         private GetCurrentViewElementsEventHandler _handler => (GetCurrentViewElementsEventHandler)Handler;
 
@@ -16,7 +16,7 @@ namespace RevitMCPCommandSet.Commands.Access
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

@@ -5,7 +5,7 @@ using RevitMCPCommandSet.Services;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class ColorSplashCommand : ExternalEventCommandBase
+    public class ColorSplashCommand : McpCommandBase
     {
         private ColorSplashEventHandler _handler => (ColorSplashEventHandler)Handler;
 
@@ -23,7 +23,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

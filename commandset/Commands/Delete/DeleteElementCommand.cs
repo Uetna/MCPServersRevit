@@ -5,7 +5,7 @@ using RevitMCPSDK.API.Base;
 
 namespace RevitMCPCommandSet.Commands.Delete
 {
-    public class DeleteElementCommand : ExternalEventCommandBase
+    public class DeleteElementCommand : McpCommandBase
     {
         private static readonly object _executionLock = new object();
         private DeleteElementEventHandler _handler => (DeleteElementEventHandler)Handler;
@@ -17,7 +17,7 @@ namespace RevitMCPCommandSet.Commands.Delete
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             lock (_executionLock)
             {
@@ -38,7 +38,7 @@ namespace RevitMCPCommandSet.Commands.Delete
                     {
                         if (_handler.IsSuccess)
                         {
-                            return new { deleted = true, count = _handler.DeletedCount };
+                            return new { deleted = true, count = _handler.DeletedCount, invalidIds = _handler.InvalidIds };
                         }
                         else
                         {

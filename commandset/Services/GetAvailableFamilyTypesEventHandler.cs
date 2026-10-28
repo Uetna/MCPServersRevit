@@ -4,7 +4,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class GetAvailableFamilyTypesEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class GetAvailableFamilyTypesEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         // 执行结果
         public List<FamilyTypeInfo> ResultFamilyTypes { get; private set; }
@@ -12,6 +12,14 @@ namespace RevitMCPCommandSet.Services
         // 状态同步对象
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         // 过滤条件
         public List<string> CategoryList { get; set; }
@@ -21,7 +29,6 @@ namespace RevitMCPCommandSet.Services
         // 执行时间，略微比调用超时更短一些
         public bool WaitForCompletion(int timeoutMilliseconds = 12500)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 
@@ -124,7 +131,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error", "获取族类型失败: " + ex.Message);
+                LastError = ex;
             }
             finally
             {

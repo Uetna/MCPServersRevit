@@ -36,7 +36,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
                 text: JSON.stringify({
                   success: false,
                   error: `Project "${args.project_name}" not found. Please store project data first using store_project_data tool.`
-                }, null, 2)
+                })
               }
             ],
             isError: true
@@ -58,7 +58,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
                 project_name: args.project_name,
                 total_rooms: rooms.length,
                 rooms_stored: count
-              }, null, 2)
+              })
             }
           ]
         };
@@ -70,7 +70,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
               text: JSON.stringify({
                 success: false,
                 error: error.message
-              }, null, 2)
+              })
             }
           ],
           isError: true

@@ -25,13 +25,14 @@ namespace revit_mcp_plugin.Core
                 {
                     service.Initialize(commandData.Application);
                     service.Start();
-                    TaskDialog.Show("revitMCP", "Open Server");
+                    TaskDialog.Show("revitMCP", $"Open Server (127.0.0.1:{service.Port})");
                 }
 
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
+                TaskDialog.Show("revitMCP", $"MCP server failed to start:\n{ex.Message}");
                 message = ex.Message;
                 return Result.Failed;
             }

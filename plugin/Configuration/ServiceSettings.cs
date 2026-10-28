@@ -20,7 +20,7 @@ namespace revit_mcp_plugin.Configuration
         /// <para>Socket service port.</para>
         /// </summary>
         [JsonProperty("port")]
-        public int Port { get; set; } = 8080;
+        public int Port { get; set; } = 8964;
 
     }
 }

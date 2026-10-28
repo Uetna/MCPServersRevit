@@ -5,7 +5,7 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class ColorSplashEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class ColorSplashEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
@@ -15,6 +15,14 @@ namespace RevitMCPCommandSet.Services
         /// Event wait object
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         /// <summary>
         /// Results data
@@ -233,7 +241,6 @@ namespace RevitMCPCommandSet.Services
         /// <returns>Whether operation completed within timeout</returns>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

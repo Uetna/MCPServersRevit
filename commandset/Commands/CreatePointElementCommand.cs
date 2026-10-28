@@ -6,7 +6,7 @@ using RevitMCPCommandSet.Services;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class CreatePointElementCommand :    ExternalEventCommandBase
+    public class CreatePointElementCommand : McpCommandBase
     {
         private CreatePointElementEventHandler _handler => (CreatePointElementEventHandler)Handler;
 
@@ -24,7 +24,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

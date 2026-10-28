@@ -5,7 +5,7 @@ using RevitMCPCommandSet.Utils;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class CreatePointElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class CreatePointElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication uiApp;
         private UIDocument uiDoc => uiApp.ActiveUIDocument;
@@ -16,6 +16,14 @@ namespace RevitMCPCommandSet.Services
         /// 事件等待对象
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
         /// <summary>
         /// 创建数据（传入数据）
         /// </summary>
@@ -234,7 +242,7 @@ namespace RevitMCPCommandSet.Services
                     Success = false,
                     Message = $"创建点状构件时出错: {ex.Message}",
                 };
-                TaskDialog.Show("错误", $"创建点状构件时出错: {ex.Message}");
+                LastError = ex;
             }
             finally
             {
@@ -249,7 +257,6 @@ namespace RevitMCPCommandSet.Services
         /// <returns>操作是否在超时前完成</returns>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

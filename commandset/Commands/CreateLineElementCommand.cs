@@ -6,7 +6,7 @@ using RevitMCPSDK.API.Base;
 
 namespace RevitMCPCommandSet.Commands
 {
-    public class CreateLineElementCommand : ExternalEventCommandBase
+    public class CreateLineElementCommand : McpCommandBase
     {
         private CreateLineElementEventHandler _handler => (CreateLineElementEventHandler)Handler;
 
@@ -24,7 +24,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

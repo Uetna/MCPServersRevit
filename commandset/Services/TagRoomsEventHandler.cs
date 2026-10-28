@@ -36,7 +36,7 @@ namespace RevitMCPCommandSet.Services
     /// <summary>
     /// Event handler for creating room tags in Revit
     /// </summary>
-    public class TagRoomsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class TagRoomsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         private UIApplication _uiApp;
         private UIDocument _uiDoc => _uiApp.ActiveUIDocument;
@@ -46,6 +46,14 @@ namespace RevitMCPCommandSet.Services
         /// Event wait object for synchronization
         /// </summary>
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
 
         /// <summary>
         /// Tagging result data
@@ -334,7 +342,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error", $"Error tagging rooms: {ex.Message}");
+                LastError = ex;
                 TaggingResults = new
                 {
                     success = false,
@@ -354,7 +362,6 @@ namespace RevitMCPCommandSet.Services
         /// <returns>True if completed before timeout</returns>
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

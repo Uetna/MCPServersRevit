@@ -66,12 +66,13 @@ export function registerCreateRoomTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: JSON.stringify(response),
             },
           ],
         };
       } catch (error) {
         return {
+          isError: true,
           content: [
             {
               type: "text",

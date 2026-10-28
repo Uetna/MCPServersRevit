@@ -30,7 +30,7 @@ export function registerStoreProjectDataTool(server: McpServer) {
                 message: "Project data stored successfully",
                 project_id: projectId,
                 project
-              }, null, 2)
+              })
             }
           ]
         };
@@ -42,7 +42,7 @@ export function registerStoreProjectDataTool(server: McpServer) {
               text: JSON.stringify({
                 success: false,
                 error: error.message
-              }, null, 2)
+              })
             }
           ],
           isError: true

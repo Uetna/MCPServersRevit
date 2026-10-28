@@ -9,7 +9,7 @@ namespace RevitMCPCommandSet.Commands.Architecture
     /// <summary>
     /// Command to create levels in Revit with automatic floor plan view generation
     /// </summary>
-    public class CreateLevelCommand : ExternalEventCommandBase
+    public class CreateLevelCommand : McpCommandBase
     {
         private CreateLevelEventHandler _handler => (CreateLevelEventHandler)Handler;
 
@@ -27,7 +27,7 @@ namespace RevitMCPCommandSet.Commands.Architecture
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

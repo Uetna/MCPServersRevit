@@ -3,6 +3,8 @@ using RevitMCPSDK.API.Interfaces;
 using RevitMCPSDK.API.Models.JsonRPC;
 using RevitMCPSDK.Exceptions;
 using System;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace revit_mcp_plugin.Core
 {
@@ -21,55 +23,63 @@ namespace revit_mcp_plugin.Core
         /// Executes a Revit command declared inside a JSON-RPC request.
         /// </summary>
         /// <param name="request">A JSON-RPC request.</param>
-        /// <returns></returns>
+        /// <returns>Serialized JSON-RPC response.</returns>
         public string ExecuteCommand(JsonRPCRequest request)
         {
+            // 查找命令
+            // Find command
+            if (!_commandRegistry.TryGetCommand(request.Method, out var command))
+            {
+                _logger.Warning("Command not found: {0}", request.Method);
+                return CreateErrorResponse(request.Id,
+                    JsonRPCErrorCodes.MethodNotFound,
+                    $"Method not found: '{request.Method}'");
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            _logger.Info("Executing command: {0} (id {1})", request.Method, request.Id);
+
+            // 执行命令
+            // Execute command
             try
             {
-                // 查找命令
-                // Find command
-                if (!_commandRegistry.TryGetCommand(request.Method, out var command))
-                {
-                    _logger.Warning("未找到命令: {0}\nCommand not found: {0}", request.Method);
-                    return CreateErrorResponse(request.Id,
-                        JsonRPCErrorCodes.MethodNotFound,
-                        $"未找到方法: '{request.Method}'\nMethod not found: '{request.Method}'");
-                }
+                object result = command.Execute(request.GetParamsObject(), request.Id);
+                _logger.Info("Command {0} succeeded in {1} ms", request.Method, stopwatch.ElapsedMilliseconds);
 
-                _logger.Info("执行命令: {0}", request.Method);
-
-                // 执行命令
-                // Execute command
-                try
-                {
-                    object result = command.Execute(request.GetParamsObject(), request.Id);
-                    _logger.Info("命令 {0} 执行成功\nCommand {0} executed successfully.", request.Method);
-
-                    return CreateSuccessResponse(request.Id, result);
-                }
-                catch (CommandExecutionException ex)
-                {
-                    _logger.Error("命令 {0} 执行失败: {1}\nCommand {0} failed to execute: {1}", request.Method, ex.Message);
-                    return CreateErrorResponse(request.Id,
-                        ex.ErrorCode,
-                        ex.Message,
-                        ex.ErrorData);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error("命令 {0} 执行时发生异常: {1}\nAn exception occurred while executing command {0}: {1}", request.Method, ex.Message);
-                    return CreateErrorResponse(request.Id,
-                        JsonRPCErrorCodes.InternalError,
-                        ex.Message);
-                }
+                return CreateSuccessResponse(request.Id, result);
             }
             catch (Exception ex)
             {
-                _logger.Error("执行命令处理过程中发生异常: {0}\nAn exception has occurred durion command execution: {0}", ex.Message);
-                return CreateErrorResponse(request.Id,
-                    JsonRPCErrorCodes.InternalError,
-                    $"内部错误: {ex.Message}\nInternal error: {ex.Message}");
+                var root = Unwrap(ex);
+                var commandError = ex as CommandExecutionException ?? root as CommandExecutionException;
+                var message = BuildMessage(ex, root);
+
+                _logger.Error("Command {0} failed in {1} ms: {2}\n{3}",
+                    request.Method, stopwatch.ElapsedMilliseconds, message, root.StackTrace);
+
+                return commandError != null
+                    ? CreateErrorResponse(request.Id, commandError.ErrorCode, message, commandError.ErrorData)
+                    : CreateErrorResponse(request.Id, JsonRPCErrorCodes.InternalError, message);
             }
+        }
+
+        /// <summary>Strips reflection/aggregate wrappers that hide the real error message.</summary>
+        private static Exception Unwrap(Exception ex)
+        {
+            while ((ex is TargetInvocationException || ex is AggregateException) && ex.InnerException != null)
+                ex = ex.InnerException;
+            return ex;
+        }
+
+        /// <summary>
+        /// Commands often re-wrap exceptions as "X failed: {inner.Message}"; keep that context
+        /// but append the root cause when it is not already part of the message.
+        /// </summary>
+        private static string BuildMessage(Exception ex, Exception root)
+        {
+            if (ReferenceEquals(ex, root) || ex.Message.Contains(root.Message))
+                return ex.Message;
+            return $"{ex.Message} -> {root.GetType().Name}: {root.Message}";
         }
 
         private string CreateSuccessResponse(string id, object result)
@@ -77,7 +87,7 @@ namespace revit_mcp_plugin.Core
             var response = new JsonRPCSuccessResponse
             {
                 Id = id,
-                Result = result is JToken jToken ? jToken : JToken.FromObject(result)
+                Result = result == null ? JValue.CreateNull() : result is JToken jToken ? jToken : JToken.FromObject(result)
             };
 
             return response.ToJson();

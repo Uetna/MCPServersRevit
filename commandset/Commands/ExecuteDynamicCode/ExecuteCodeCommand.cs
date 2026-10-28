@@ -7,7 +7,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
     /// <summary>
     /// 处理代码执行的命令类
     /// </summary>
-    public class ExecuteCodeCommand : ExternalEventCommandBase
+    public class ExecuteCodeCommand : McpCommandBase
     {
         private ExecuteCodeEventHandler _handler => (ExecuteCodeEventHandler)Handler;
 
@@ -18,7 +18,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

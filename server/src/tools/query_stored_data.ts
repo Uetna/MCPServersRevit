@@ -48,7 +48,7 @@ export function registerQueryStoredDataTool(server: McpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: `Project with ID ${args.project_id} not found`
-                    }, null, 2)
+                    })
                   }
                 ]
               };
@@ -68,7 +68,7 @@ export function registerQueryStoredDataTool(server: McpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: `Project "${args.project_name}" not found`
-                    }, null, 2)
+                    })
                   }
                 ]
               };
@@ -95,7 +95,7 @@ export function registerQueryStoredDataTool(server: McpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: `Project "${args.project_name}" not found`
-                    }, null, 2)
+                    })
                   }
                 ]
               };
@@ -123,7 +123,7 @@ export function registerQueryStoredDataTool(server: McpServer) {
                 success: true,
                 query_type: args.query_type,
                 data: result
-              }, null, 2)
+              })
             }
           ]
         };
@@ -135,7 +135,7 @@ export function registerQueryStoredDataTool(server: McpServer) {
               text: JSON.stringify({
                 success: false,
                 error: error.message
-              }, null, 2)
+              })
             }
           ],
           isError: true

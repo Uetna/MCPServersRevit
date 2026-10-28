@@ -12,7 +12,7 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
     /// <summary>
     /// 处理代码执行的外部事件处理器
     /// </summary>
-    public class ExecuteCodeEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class ExecuteCodeEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         public const string TransactionModeAuto = "auto";
         public const string TransactionModeNone = "none";
@@ -29,6 +29,14 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
+
         // 设置要执行的代码和参数
         public void SetExecutionParameters(string code, object[] parameters = null, string transactionMode = TransactionModeAuto)
         {
@@ -42,7 +50,6 @@ namespace RevitMCPCommandSet.Commands.ExecuteDynamicCode
         // 等待执行完成 - IWaitableExternalEventHandler接口实现
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 

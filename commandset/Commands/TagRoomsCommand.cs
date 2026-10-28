@@ -8,7 +8,7 @@ namespace RevitMCPCommandSet.Commands
     /// <summary>
     /// Command to create tags for rooms in the current view
     /// </summary>
-    public class TagRoomsCommand : ExternalEventCommandBase
+    public class TagRoomsCommand : McpCommandBase
     {
         private TagRoomsEventHandler _handler => (TagRoomsEventHandler)Handler;
 
@@ -26,7 +26,7 @@ namespace RevitMCPCommandSet.Commands
         {
         }
 
-        public override object Execute(JObject parameters, string requestId)
+        protected override object ExecuteCommand(JObject parameters, string requestId)
         {
             try
             {

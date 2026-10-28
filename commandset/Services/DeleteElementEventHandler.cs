@@ -4,22 +4,32 @@ using RevitMCPSDK.API.Interfaces;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class DeleteElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class DeleteElementEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         // 执行结果
         public bool IsSuccess { get; private set; }
 
         // 成功删除的元素数量
         public int DeletedCount { get; private set; }
+
+        // Ids that were not numeric or do not exist in the document
+        public List<string> InvalidIds { get; private set; } = new List<string>();
         // 状态同步对象
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
+
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
         // 要删除的元素ID数组
         public string[] ElementIds { get; set; }
         // 实现IWaitableExternalEventHandler接口
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
         return _resetEvent.WaitOne(timeoutMilliseconds);
         }
         public void Execute(UIApplication app)
@@ -38,24 +48,19 @@ namespace RevitMCPCommandSet.Services
                 List<string> invalidIds = new List<string>();
                 foreach (var idStr in ElementIds)
                 {
-                    if (int.TryParse(idStr, out int elementIdValue))
+                    if (long.TryParse(idStr, out long elementIdValue))
                     {
-                        var elementId = new ElementId(elementIdValue);
+                        var elementId = elementIdValue.ToElementId();
                         // 检查元素是否存在
                         if (doc.GetElement(elementId) != null)
                         {
                             elementIdsToDelete.Add(elementId);
+                            continue;
                         }
                     }
-                    else
-                    {
-                        invalidIds.Add(idStr);
-                    }
+                    invalidIds.Add(idStr);
                 }
-                if (invalidIds.Count > 0)
-                {
-                    TaskDialog.Show("警告", $"以下ID无效或元素不存在：{string.Join(", ", invalidIds)}");
-                }
+                InvalidIds = invalidIds;
                 // 如果有可删除的元素，则执行删除
                 if (elementIdsToDelete.Count > 0)
                 {
@@ -73,13 +78,14 @@ namespace RevitMCPCommandSet.Services
                 }
                 else
                 {
-                    TaskDialog.Show("错误", "没有有效的元素可以删除");
+                    LastError = new InvalidOperationException(
+                        $"No existing elements to delete. Invalid or missing ids: {string.Join(", ", invalidIds)}");
                     IsSuccess = false;
                 }
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("错误", "删除元素失败: " + ex.Message);
+                LastError = ex;
                 IsSuccess = false;
             }
             finally

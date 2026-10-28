@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace RevitMCPCommandSet.Services
 {
-    public class GetSelectedElementsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler
+    public class GetSelectedElementsEventHandler : IExternalEventHandler, IWaitableExternalEventHandler, IMcpEventHandler
     {
         // 执行结果
         public List<Models.Common.ElementInfo> ResultElements { get; private set; }
@@ -18,13 +18,20 @@ namespace RevitMCPCommandSet.Services
         public bool TaskCompleted { get; private set; }
         private readonly ManualResetEvent _resetEvent = new ManualResetEvent(false);
 
+        public Exception LastError { get; private set; }
+
+        public void PrepareForRaise()
+        {
+            LastError = null;
+            _resetEvent.Reset();
+        }
+
         // 限制返回的元素数量
         public int? Limit { get; set; }
 
         // 实现IWaitableExternalEventHandler接口
         public bool WaitForCompletion(int timeoutMilliseconds = 10000)
         {
-            _resetEvent.Reset();
             return _resetEvent.WaitOne(timeoutMilliseconds);
         }
 
@@ -60,7 +67,7 @@ namespace RevitMCPCommandSet.Services
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Error", "获取选中元素失败: " + ex.Message);
+                LastError = ex;
                 ResultElements = new List<Models.Common.ElementInfo>();
             }
             finally

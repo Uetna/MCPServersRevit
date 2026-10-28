@@ -83,3 +83,16 @@
 - stdio-тест использует временный файл БД, а не `%APPDATA%`.
 
 **Проверка:** `npm run build`, `npm test` 11 из 11. Переопределение пути к БД проверено записью проекта во временный файл.
+
+## Этап 4. Тесты и CI
+
+- **CI на каждый PR и push в `main`** (`.github/workflows/ci.yml`, #19):
+  - `server`: Node 20, `npm ci`, `npm run build`, `npm test`;
+  - `revit`: `dotnet build` решения для Revit 2024 (.NET Framework 4.8), 2025 и 2026 (.NET 8).
+- **Release-workflow** (#18): Node 18 → 20 в сборке (требование `engines: >=20` и better-sqlite3 12), `npm test` перед упаковкой и перед публикацией в npm.
+- **Тесты сервера** (`server/test/`, без Revit):
+  - `socket-client.test.mjs`: запрос 300 КБ, ответ, раздробленный по 3 байта с кириллицей, параллельные ответы в обратном порядке, обрыв соединения (отказ сразу, без ожидания таймаута), таймаут, ответ старого плагина без `\n`, JSON-RPC ошибка и `Success: false`, предупреждения Revit, понятная ошибка при выключенном Revit, переподключение;
+  - `mcp-server.test.mjs`: сервер по stdio через MCP-клиент SDK, полный список инструментов, `isError: true` при недоступном Revit.
+- **Отложено:**
+  - Фиксация версий NuGet (`Nice3point.Revit.* $(RevitVersion).*`, `RevitMCPSDK $(RevitVersion).*`). Один `packages.lock.json` на проект не поддерживает разные версии пакетов для 7 конфигураций Revit, а точные версии на каждый год нужно подбирать вместе с проверкой в Revit. Рекомендация: Central Package Management с условными версиями по `$(RevitVersion)`.
+  - Тесты `tests/commandset` требуют запущенного Revit (Nice3point.TUnit.Revit) и в CI не запускаются.

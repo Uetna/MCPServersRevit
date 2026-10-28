@@ -66,10 +66,10 @@ namespace RevitMCPCommandSet.Services
                     Level topLevel = null;
                     double topOffset = -1;  // ft
                     double baseOffset = -1; // ft
-                    baseLevel = doc.FindNearestLevel(data.BaseLevel / 304.8);
-                    baseOffset = (data.BaseOffset + data.BaseLevel) / 304.8 - baseLevel.Elevation;
-                    topLevel = doc.FindNearestLevel((data.BaseLevel + data.BaseOffset + data.Height) / 304.8);
-                    topOffset = (data.BaseLevel + data.BaseOffset + data.Height) / 304.8 - topLevel.Elevation;
+                    baseLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel));
+                    baseOffset = ProjectUnits.ToInternalLength(data.BaseOffset + data.BaseLevel) - baseLevel.Elevation;
+                    topLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Height));
+                    topOffset = ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Height) - topLevel.Elevation;
                     if (baseLevel == null)
                         continue;
 
@@ -187,7 +187,7 @@ namespace RevitMCPCommandSet.Services
                                   JZLine.ToLine(data.LocationLine),
                                   wallType.Id,
                                   baseLevel.Id,
-                                  data.Height / 304.8,
+                                  ProjectUnits.ToInternalLength(data.Height),
                                   baseOffset,
                                   false,
                                   false
@@ -301,7 +301,7 @@ namespace RevitMCPCommandSet.Services
             WallType existingType = new FilteredElementCollector(doc)
                                     .OfClass(typeof(WallType))
                                     .Cast<WallType>()
-                                    .FirstOrDefault(w => w.Name == $"{_wallName}{width * 304.8}mm");
+                                    .FirstOrDefault(w => w.Name == $"{_wallName}{Math.Round(width * 304.8)}mm");
             if (existingType != null)
                 return existingType;
 
@@ -323,7 +323,7 @@ namespace RevitMCPCommandSet.Services
 
             // 复制墙体类型
             WallType newWallType = null;
-            newWallType = baseWallType.Duplicate($"{_wallName}{width * 304.8}mm") as WallType;
+            newWallType = baseWallType.Duplicate($"{_wallName}{Math.Round(width * 304.8)}mm") as WallType;
 
             // 设置墙厚
             CompoundStructure cs = newWallType.GetCompoundStructure();
@@ -358,7 +358,7 @@ namespace RevitMCPCommandSet.Services
         /// <returns>风管类型</returns>
         private DuctType CreateOrGetDuctType(Document doc, double width, double height)
         {
-            string typeName = $"{_ductName}{width * 304.8}x{height * 304.8}mm";
+            string typeName = $"{_ductName}{Math.Round(width * 304.8)}x{Math.Round(height * 304.8)}mm";
 
             // 先查找是否存在指定尺寸的风管类型
             DuctType existingType = new FilteredElementCollector(doc)

@@ -302,9 +302,9 @@ namespace RevitMCPCommandSet.Services
                                     roomNumber = room.Number,
                                     location = new
                                     {
-                                        x = roomCenter.X * 304.8, // Convert to mm
-                                        y = roomCenter.Y * 304.8,
-                                        z = roomCenter.Z * 304.8
+                                        x = ProjectUnits.FromInternalLength(roomCenter.X), // Convert to mm
+                                        y = ProjectUnits.FromInternalLength(roomCenter.Y),
+                                        z = ProjectUnits.FromInternalLength(roomCenter.Z)
                                     }
                                 });
                             }

@@ -19,16 +19,20 @@ const TOOL_MODULES = [
   "get_available_family_types",
   "get_current_view_elements",
   "get_current_view_info",
+  "get_element_parameters",
   "get_material_quantities",
+  "get_project_units",
   "get_selected_elements",
   "operate_element",
   "query_stored_data",
   "say_hello",
   "send_code_to_revit",
+  "set_element_parameters",
   "store_project_data",
   "store_room_data",
   "tag_all_rooms",
   "tag_all_walls",
+  "write_lease",
 ];
 
 export async function registerTools(server: McpServer) {

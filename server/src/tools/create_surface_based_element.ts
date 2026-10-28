@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateSurfaceBasedElementTool(server: McpServer) {
   server.tool(
     "create_surface_based_element",
-    "Create one or more surface-based elements in Revit such as floors, ceilings, or roofs. Supports batch creation with detailed parameters including family type ID, boundary lines, thickness, and level information. All units are in millimeters (mm).",
+    "Create one or more surface-based elements in Revit such as floors, ceilings, or roofs. Supports batch creation with detailed parameters including family type ID, boundary lines, thickness, and level information. All lengths and coordinates are in the project length units (Manage > Project Units; call get_project_units to check).",
     {
       data: z
         .array(

@@ -45,6 +45,7 @@ namespace RevitMCPCommandSet.Services
         private List<string> _annotationCategoryList;
         private bool _includeHidden;
         private int _limit;
+        private List<string> _parameterNames = new List<string>();
 
         // 执行结果
         public ViewElementsResult ResultInfo { get; private set; }
@@ -62,8 +63,9 @@ namespace RevitMCPCommandSet.Services
         }
 
         // 设置查询参数
-        public void SetQueryParameters(List<string> modelCategoryList, List<string> annotationCategoryList, bool includeHidden, int limit)
+        public void SetQueryParameters(List<string> modelCategoryList, List<string> annotationCategoryList, bool includeHidden, int limit, List<string> parameterNames = null)
         {
+            _parameterNames = parameterNames ?? new List<string>();
             _modelCategoryList = modelCategoryList;
             _annotationCategoryList = annotationCategoryList;
             _includeHidden = includeHidden;
@@ -152,15 +154,16 @@ namespace RevitMCPCommandSet.Services
             }
         }
 
-        private const double FeetToMm = 304.8;
-
-        private static string Mm(double feet) => (feet * FeetToMm).ToString("F1", CultureInfo.InvariantCulture);
+        // Lengths in the project length units (Manage > Project Units).
+        private static string Len(double feet) =>
+            Math.Round(ProjectUnits.FromInternalLength(feet), 4).ToString(CultureInfo.InvariantCulture);
 
         /// <summary>
-        /// Basic element data. Coordinates and lengths are in millimetres. Parameters are read by
-        /// BuiltInParameter, so the result does not depend on the Revit UI language.
+        /// Basic element data. Coordinates and lengths are in project length units. Built-in data is
+        /// read by BuiltInParameter (language independent); extra parameters requested by key may be
+        /// built-in, shared (GUID) or project/family parameters (name).
         /// </summary>
-        private static Dictionary<string, string> GetElementProperties(Document doc, Element element)
+        private Dictionary<string, string> GetElementProperties(Document doc, Element element)
         {
             var properties = new Dictionary<string, string>
             {
@@ -170,18 +173,18 @@ namespace RevitMCPCommandSet.Services
             if (element.Location is LocationPoint locationPoint)
             {
                 var point = locationPoint.Point;
-                properties["LocationX"] = Mm(point.X);
-                properties["LocationY"] = Mm(point.Y);
-                properties["LocationZ"] = Mm(point.Z);
+                properties["LocationX"] = Len(point.X);
+                properties["LocationY"] = Len(point.Y);
+                properties["LocationZ"] = Len(point.Z);
             }
             else if (element.Location is LocationCurve locationCurve)
             {
                 var curve = locationCurve.Curve;
                 var start = curve.GetEndPoint(0);
                 var end = curve.GetEndPoint(1);
-                properties["Start"] = $"{Mm(start.X)}, {Mm(start.Y)}, {Mm(start.Z)}";
-                properties["End"] = $"{Mm(end.X)}, {Mm(end.Y)}, {Mm(end.Z)}";
-                properties["Length"] = Mm(curve.Length);
+                properties["Start"] = $"{Len(start.X)}, {Len(start.Y)}, {Len(start.Z)}";
+                properties["End"] = $"{Len(end.X)}, {Len(end.Y)}, {Len(end.Z)}";
+                properties["Length"] = Len(curve.Length);
             }
 
             AddString(properties, "Comments", element.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS));
@@ -195,6 +198,13 @@ namespace RevitMCPCommandSet.Services
                 if (!string.IsNullOrEmpty(elementType.FamilyName))
                     properties["Family"] = elementType.FamilyName;
                 properties["Type"] = elementType.Name;
+            }
+
+            foreach (var key in _parameterNames)
+            {
+                var value = ElementParameters.ToDisplayString(ElementParameters.Find(element, key));
+                if (value != null)
+                    properties[key] = value;
             }
 
             return properties;

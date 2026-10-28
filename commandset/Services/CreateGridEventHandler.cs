@@ -99,15 +99,15 @@ namespace RevitMCPCommandSet.Services
 
                         // X-axis grids run parallel to Y-axis (vertical lines)
                         XYZ startPoint = new XYZ(
-                            xPos / 304.8,  // mm to ft
-                            Parameters.YExtentMin / 304.8,
-                            Parameters.Elevation / 304.8
+                            ProjectUnits.ToInternalLength(xPos),  // mm to ft
+                            ProjectUnits.ToInternalLength(Parameters.YExtentMin),
+                            ProjectUnits.ToInternalLength(Parameters.Elevation)
                         );
 
                         XYZ endPoint = new XYZ(
-                            xPos / 304.8,
-                            Parameters.YExtentMax / 304.8,
-                            Parameters.Elevation / 304.8
+                            ProjectUnits.ToInternalLength(xPos),
+                            ProjectUnits.ToInternalLength(Parameters.YExtentMax),
+                            ProjectUnits.ToInternalLength(Parameters.Elevation)
                         );
 
                         Line gridLine = Line.CreateBound(startPoint, endPoint);
@@ -155,15 +155,15 @@ namespace RevitMCPCommandSet.Services
 
                         // Y-axis grids run parallel to X-axis (horizontal lines)
                         XYZ startPoint = new XYZ(
-                            Parameters.XExtentMin / 304.8,  // mm to ft
-                            yPos / 304.8,
-                            Parameters.Elevation / 304.8
+                            ProjectUnits.ToInternalLength(Parameters.XExtentMin),  // mm to ft
+                            ProjectUnits.ToInternalLength(yPos),
+                            ProjectUnits.ToInternalLength(Parameters.Elevation)
                         );
 
                         XYZ endPoint = new XYZ(
-                            Parameters.XExtentMax / 304.8,
-                            yPos / 304.8,
-                            Parameters.Elevation / 304.8
+                            ProjectUnits.ToInternalLength(Parameters.XExtentMax),
+                            ProjectUnits.ToInternalLength(yPos),
+                            ProjectUnits.ToInternalLength(Parameters.Elevation)
                         );
 
                         Line gridLine = Line.CreateBound(startPoint, endPoint);

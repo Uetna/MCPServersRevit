@@ -127,7 +127,7 @@ namespace RevitMCPCommandSet.Services.Architecture
                         if (level == null && roomInfo.Location != null)
                         {
                             // Find nearest level to the Z coordinate
-                            double zInFeet = roomInfo.Location.Z / 304.8;
+                            double zInFeet = ProjectUnits.ToInternalLength(roomInfo.Location.Z);
                             level = FindNearestLevel(zInFeet);
                         }
 
@@ -153,8 +153,8 @@ namespace RevitMCPCommandSet.Services.Architecture
                         if (roomInfo.Location != null)
                         {
                             // Convert mm to feet for UV coordinates (2D point in plan)
-                            double xInFeet = roomInfo.Location.X / 304.8;
-                            double yInFeet = roomInfo.Location.Y / 304.8;
+                            double xInFeet = ProjectUnits.ToInternalLength(roomInfo.Location.X);
+                            double yInFeet = ProjectUnits.ToInternalLength(roomInfo.Location.Y);
                             UV locationUV = new UV(xInFeet, yInFeet);
 
                             // Create room at the specified UV location on the level
@@ -219,7 +219,7 @@ namespace RevitMCPCommandSet.Services.Architecture
                             Parameter limitOffsetParam = room.get_Parameter(BuiltInParameter.ROOM_UPPER_OFFSET);
                             if (limitOffsetParam != null && !limitOffsetParam.IsReadOnly)
                             {
-                                limitOffsetParam.Set(roomInfo.LimitOffset / 304.8);
+                                limitOffsetParam.Set(ProjectUnits.ToInternalLength(roomInfo.LimitOffset));
                             }
                         }
 
@@ -229,7 +229,7 @@ namespace RevitMCPCommandSet.Services.Architecture
                             Parameter baseOffsetParam = room.get_Parameter(BuiltInParameter.ROOM_LOWER_OFFSET);
                             if (baseOffsetParam != null && !baseOffsetParam.IsReadOnly)
                             {
-                                baseOffsetParam.Set(roomInfo.BaseOffset / 304.8);
+                                baseOffsetParam.Set(ProjectUnits.ToInternalLength(roomInfo.BaseOffset));
                             }
                         }
 

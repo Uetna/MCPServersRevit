@@ -22,6 +22,7 @@
 //
 
 using Autodesk.Revit.UI;
+using Newtonsoft.Json.Linq;
 using RevitMCPCommandSet.Models.Annotation;
 using RevitMCPCommandSet.Models.Common;
 using RevitMCPCommandSet.Utils;
@@ -48,7 +49,6 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
         LastError = null;
         _resetEvent.Reset();
     }
-    private const double MILLIMETERS_TO_FEET = 1.0 / 304.8;
 
     #endregion
 
@@ -487,38 +487,34 @@ public class CreateDimensionEventHandler : IExternalEventHandler, IWaitableExter
 
         foreach (var option in dimensionInfo.Options)
         {
-            var param = dimension.LookupParameter(option.Key);
-            if (param == null) continue;
+            // Built-in name, shared parameter GUID or parameter name; numbers are in project units.
+            var param = ElementParameters.Find(dimension, option.Key, includeType: false);
+            if (param == null || param.IsReadOnly || option.Value == null) continue;
 
-            if (option.Value is double doubleValue && param.StorageType == StorageType.Double)
+            try
             {
-                param.Set(doubleValue * MILLIMETERS_TO_FEET);
+                ElementParameters.SetValue(param, JToken.FromObject(option.Value));
             }
-            else if (option.Value is int intValue && param.StorageType == StorageType.Integer)
+            catch (InvalidOperationException)
             {
-                param.Set(intValue);
-            }
-            else if (option.Value is string stringValue && param.StorageType == StorageType.String)
-            {
-                param.Set(stringValue);
+                // Keep the previous behaviour: an option Revit rejects is skipped.
             }
         }
     }
 
     /// <summary>
-    ///     Converts millimeter coordinates to Revit internal coordinates (feet)
+    ///     Converts project-unit coordinates to Revit internal coordinates (feet)
     /// </summary>
-    /// <param name="x">X coordinate in millimeters</param>
-    /// <param name="y">Y coordinate in millimeters</param>
-    /// <param name="z">Z coordinate in millimeters</param>
+    /// <param name="x">X coordinate in project length units</param>
+    /// <param name="y">Y coordinate in project length units</param>
+    /// <param name="z">Z coordinate in project length units</param>
     /// <returns>XYZ point in Revit coordinates</returns>
     private XYZ ConvertToInternalCoordinates(double x, double y, double z)
     {
         return new XYZ(
-            x * MILLIMETERS_TO_FEET,
-            y * MILLIMETERS_TO_FEET,
-            z * MILLIMETERS_TO_FEET
-        );
+            ProjectUnits.ToInternalLength(x),
+            ProjectUnits.ToInternalLength(y),
+            ProjectUnits.ToInternalLength(z));
     }
 
     #endregion

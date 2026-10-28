@@ -12,7 +12,7 @@ const transactionModeSchema = z
 export function registerSendCodeToRevitTool(server: McpServer) {
   server.tool(
     "send_code_to_revit",
-    "Send C# code to Revit for execution. The code will be inserted into a template with access to the Revit Document and parameters. Your code should be written to work within the Execute method of the template: use the variables `document` (Autodesk.Revit.DB.Document) and `parameters` (object[]) and return a value. Compilation and runtime errors report line numbers of your snippet. Revit units are internal (feet).",
+    "Send C# code to Revit for execution. The code will be inserted into a template with access to the Revit Document and parameters. Your code should be written to work within the Execute method of the template: use the variables `document` (Autodesk.Revit.DB.Document) and `parameters` (object[]) and return a value. Compilation and runtime errors report line numbers of your snippet. Raw Revit API values are in internal units (feet, square feet, radians); convert with UnitUtils.ConvertFromInternalUnits(value, document.GetUnits().GetFormatOptions(SpecTypeId.Length).GetUnitTypeId()) to report project units. Read parameters by BuiltInParameter, shared parameter GUID (element.get_Parameter(guid)) or name (element.LookupParameter) for project parameters.",
     {
       code: z
         .string()

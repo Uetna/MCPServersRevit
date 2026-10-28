@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateRoomTool(server: McpServer) {
   server.tool(
     "create_room",
-    "Create and place rooms in Revit at specified locations. Rooms are placed within enclosed wall boundaries and can be named and numbered. The location point should be inside an enclosed area bounded by walls. All coordinates are in millimeters (mm).",
+    "Create and place rooms in Revit at specified locations. Rooms are placed within enclosed wall boundaries and can be named and numbered. The location point should be inside an enclosed area bounded by walls. All coordinates are in project length units.",
     {
       data: z
         .array(
@@ -19,9 +19,9 @@ export function registerCreateRoomTool(server: McpServer) {
               .describe("Room number (e.g., '101', 'A-01')"),
             location: z
               .object({
-                x: z.number().describe("X coordinate in mm (should be inside enclosed walls)"),
-                y: z.number().describe("Y coordinate in mm (should be inside enclosed walls)"),
-                z: z.number().describe("Z coordinate in mm (typically 0 or level elevation)"),
+                x: z.number().describe("X coordinate in project length units (should be inside enclosed walls)"),
+                y: z.number().describe("Y coordinate in project length units (should be inside enclosed walls)"),
+                z: z.number().describe("Z coordinate in project length units (typically 0 or level elevation)"),
               })
               .describe(
                 "The location point where the room will be placed - must be inside an enclosed area"
@@ -37,11 +37,11 @@ export function registerCreateRoomTool(server: McpServer) {
             limitOffset: z
               .number()
               .optional()
-              .describe("Offset from upper limit in mm"),
+              .describe("Offset from upper limit in project length units"),
             baseOffset: z
               .number()
               .optional()
-              .describe("Offset from base level in mm"),
+              .describe("Offset from base level in project length units"),
             department: z
               .string()
               .optional()

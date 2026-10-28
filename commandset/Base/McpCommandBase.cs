@@ -1,4 +1,5 @@
 global using RevitMCPCommandSet.Base;
+global using RevitMCPCommandSet.Utils;
 using Autodesk.Revit.UI;
 using Newtonsoft.Json.Linq;
 using RevitMCPSDK.API.Base;
@@ -38,6 +39,7 @@ public abstract class McpCommandBase : ExternalEventCommandBase
     protected McpCommandBase(IWaitableExternalEventHandler handler, UIApplication uiApp)
         : base(handler, uiApp)
     {
+        ProjectUnits.Attach(uiApp);
     }
 
     public sealed override object Execute(JObject parameters, string requestId)
@@ -58,6 +60,7 @@ public abstract class McpCommandBase : ExternalEventCommandBase
     {
         var mcpHandler = Handler as IMcpEventHandler;
         mcpHandler?.PrepareForRaise();
+        ProjectUnits.Reset();
 
         var request = Event.Raise();
         if (request == ExternalEventRequest.Denied || request == ExternalEventRequest.TimedOut)

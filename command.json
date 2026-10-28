@@ -122,6 +122,21 @@
       "commandName": "create_dimensions",
       "description": "Create dimension annotations between elements or points in the current view",
       "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "get_project_units",
+      "description": "Return the project units (length, area, volume, angle) used for all MCP values",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "get_element_parameters",
+      "description": "Read built-in, shared, project and family parameters of elements in project units",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "set_element_parameters",
+      "description": "Set built-in, shared, project and family parameter values in project units",
+      "assemblyPath": "RevitMCPCommandSet.dll"
     }
   ]
 }

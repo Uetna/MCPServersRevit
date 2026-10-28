@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateStructuralFramingSystemTool(server: McpServer) {
   server.tool(
     "create_structural_framing_system",
-    "Create a structural beam framing system in Revit. Generates beams within a rectangular boundary at fixed spacing intervals. The system uses Revit's BeamSystem API to create properly connected beam layouts. All units are in millimeters (mm).",
+    "Create a structural beam framing system in Revit. Generates beams within a rectangular boundary at fixed spacing intervals. The system uses Revit's BeamSystem API to create properly connected beam layouts. All lengths and coordinates are in the project length units (Manage > Project Units; call get_project_units to check).",
     {
       levelName: z
         .string()
@@ -14,20 +14,20 @@ export function registerCreateStructuralFramingSystemTool(server: McpServer) {
         ),
       xMin: z
         .number()
-        .describe("Minimum X coordinate of the rectangular boundary in millimeters"),
+        .describe("Minimum X coordinate of the rectangular boundary in project length units"),
       xMax: z
         .number()
-        .describe("Maximum X coordinate of the rectangular boundary in millimeters"),
+        .describe("Maximum X coordinate of the rectangular boundary in project length units"),
       yMin: z
         .number()
-        .describe("Minimum Y coordinate of the rectangular boundary in millimeters"),
+        .describe("Minimum Y coordinate of the rectangular boundary in project length units"),
       yMax: z
         .number()
-        .describe("Maximum Y coordinate of the rectangular boundary in millimeters"),
+        .describe("Maximum Y coordinate of the rectangular boundary in project length units"),
       spacing: z
         .number()
         .positive()
-        .describe("Spacing between beams in millimeters"),
+        .describe("Spacing between beams in project length units"),
       directionEdge: z
         .enum(["bottom", "right", "top", "left"])
         .default("bottom")
@@ -56,7 +56,7 @@ export function registerCreateStructuralFramingSystemTool(server: McpServer) {
         .number()
         .default(0)
         .describe(
-          "Elevation offset from the level in millimeters. Use this to adjust the vertical position of the beam system."
+          "Elevation offset from the level in project length units. Use this to adjust the vertical position of the beam system."
         ),
       is3d: z
         .boolean()

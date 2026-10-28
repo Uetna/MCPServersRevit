@@ -125,9 +125,9 @@ public static class GeometryUtils
     {
         if (point == null) return null;
         return new XYZ(
-            point.X / 304.8,
-            point.Y / 304.8,
-            point.Z / 304.8
+            ProjectUnits.ToInternalLength(point.X),
+            ProjectUnits.ToInternalLength(point.Y),
+            ProjectUnits.ToInternalLength(point.Z)
         );
     }
 
@@ -140,9 +140,9 @@ public static class GeometryUtils
     {
         if (point == null) return null;
         return new JZPoint(
-            point.X * 304.8,
-            point.Y * 304.8,
-            point.Z * 304.8
+            ProjectUnits.FromInternalLength(point.X),
+            ProjectUnits.FromInternalLength(point.Y),
+            ProjectUnits.FromInternalLength(point.Z)
         );
     }
 

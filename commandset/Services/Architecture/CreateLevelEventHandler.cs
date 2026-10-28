@@ -84,14 +84,14 @@ namespace RevitMCPCommandSet.Services.Architecture
 
                                 if (existingLevel != null)
                                 {
-                                    warnings.Add($"Level '{levelInfo.Name}' already exists at elevation {existingLevel.Elevation * 304.8:F0}mm");
+                                    warnings.Add($"Level '{levelInfo.Name}' already exists at elevation {ProjectUnits.FromInternalLength(existingLevel.Elevation):0.###} {ProjectUnits.LengthUnit}");
 
                                     createdLevels.Add(new LevelResultInfo
                                     {
                                         Id = existingLevel.Id.GetIntValue(),
                                         UniqueId = existingLevel.UniqueId,
                                         Name = existingLevel.Name,
-                                        Elevation = existingLevel.Elevation * 304.8, // Convert to mm
+                                        Elevation = ProjectUnits.FromInternalLength(existingLevel.Elevation), // Convert to mm
                                         AlreadyExisted = true
                                     });
 
@@ -101,7 +101,7 @@ namespace RevitMCPCommandSet.Services.Architecture
                             }
 
                             // Convert elevation from mm to feet
-                            double elevationInFeet = levelInfo.Elevation / 304.8;
+                            double elevationInFeet = ProjectUnits.ToInternalLength(levelInfo.Elevation);
 
                             // Create the level
                             Level newLevel = Level.Create(_doc, elevationInFeet);

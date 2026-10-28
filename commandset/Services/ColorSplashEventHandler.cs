@@ -109,22 +109,9 @@ namespace RevitMCPCommandSet.Services
 
                 foreach (Element element in elements)
                 {
-                    // Check for type parameter first, then instance parameter
-                    Parameter parameter = element.LookupParameter(_parameterName);
-
-                    if (parameter == null)
-                    {
-                        // Try to get from element type
-                        ElementId typeId = element.GetTypeId();
-                        if (typeId != ElementId.InvalidElementId)
-                        {
-                            Element elementType = doc.GetElement(typeId);
-                            if (elementType != null)
-                            {
-                                parameter = elementType.LookupParameter(_parameterName);
-                            }
-                        }
-                    }
+                    // Instance first, then type. The key may be a built-in parameter name, a shared
+                    // parameter GUID or the name of a project, shared or family parameter.
+                    Parameter parameter = ElementParameters.Find(element, _parameterName);
 
                     if (parameter != null && parameter.HasValue)
                     {

@@ -40,6 +40,7 @@ namespace revit_mcp_plugin.Core
         private readonly Logger _logger;
         private CommandExecutor _commandExecutor;
         private RevitFailureCollector _failureCollector;
+        private readonly WriteLease _writeLease = new WriteLease(TimeSpan.FromSeconds(120));
 
         public static SocketService Instance
         {
@@ -87,7 +88,10 @@ namespace revit_mcp_plugin.Core
             var settings = configManager.Config?.Settings;
             _port = settings != null && settings.Port > 0 ? settings.Port : DefaultPort;
             if (settings != null)
+            {
                 _logger.SetLevel(settings.LogLevel);
+                _writeLease.IdleTimeout = TimeSpan.FromSeconds(Math.Max(0, settings.WriteLeaseSeconds));
+            }
 
             var commandManager = new CommandManager(_commandRegistry, _logger, configManager, _uiApp);
             commandManager.LoadCommands();
@@ -203,6 +207,7 @@ namespace revit_mcp_plugin.Core
         private void HandleClientCommunication(object clientObj)
         {
             var tcpClient = (TcpClient)clientObj;
+            var session = new ClientSession(tcpClient.Client.RemoteEndPoint?.ToString());
 
             try
             {
@@ -239,7 +244,7 @@ namespace revit_mcp_plugin.Core
 
                         foreach (var message in ExtractMessages(pending))
                         {
-                            WriteResponse(stream, ProcessJsonRPCRequest(message));
+                            WriteResponse(stream, ProcessJsonRPCRequest(message, session));
                         }
                     }
                 }
@@ -250,6 +255,8 @@ namespace revit_mcp_plugin.Core
             }
             finally
             {
+                if (_writeLease.Release(session.Id))
+                    _logger.Info("Write lease released: client {0} disconnected", session.Name);
                 lock (_clientsLock) _clients.Remove(tcpClient);
                 tcpClient.Close();
             }
@@ -304,12 +311,13 @@ namespace revit_mcp_plugin.Core
             stream.Flush();
         }
 
-        private string ProcessJsonRPCRequest(string requestJson)
+        private string ProcessJsonRPCRequest(string requestJson, ClientSession session)
         {
             JsonRPCRequest request;
             try
             {
                 request = JsonConvert.DeserializeObject<JsonRPCRequest>(requestJson);
+                session.UpdateName(JObject.Parse(requestJson)["client"]?.ToString());
             }
             catch (JsonException)
             {
@@ -321,9 +329,27 @@ namespace revit_mcp_plugin.Core
 
             // Revit executes external events one at a time on its UI thread; serialising here
             // keeps command handlers (which hold per-request state) from being overwritten.
+            var isWrite = false;
             _executionGate.Wait();
             try
             {
+                if (request.Method == WriteLease.StatusMethod)
+                    return CreateSuccessResponse(request.Id, _writeLease.GetStatus(session.Id));
+
+                if (request.Method == WriteLease.ReleaseMethod)
+                    return CreateSuccessResponse(request.Id, new { released = _writeLease.Release(session.Id) });
+
+                isWrite = !WriteLease.IsReadOnly(request.Method);
+                if (isWrite)
+                {
+                    var refusal = _writeLease.TryAcquire(session.Id, session.Name);
+                    if (refusal != null)
+                    {
+                        _logger.Warning("Refused {0} from {1}: {2}", request.Method, session.Name, refusal);
+                        return CreateErrorResponse(request.Id, WriteLease.ErrorLocked, refusal);
+                    }
+                }
+
                 using (var scope = _failureCollector?.BeginScope())
                 {
                     var response = _commandExecutor.ExecuteCommand(request);
@@ -332,6 +358,7 @@ namespace revit_mcp_plugin.Core
             }
             finally
             {
+                if (isWrite) _writeLease.Touch(session.Id);
                 _executionGate.Release();
             }
         }
@@ -344,6 +371,30 @@ namespace revit_mcp_plugin.Core
             var json = JObject.Parse(response);
             json["warnings"] = JArray.FromObject(warnings);
             return json.ToString(Formatting.None);
+        }
+
+        private static string CreateSuccessResponse(string id, object result)
+        {
+            return new JsonRPCSuccessResponse { Id = id, Result = JToken.FromObject(result) }.ToJson();
+        }
+
+        /// <summary>One TCP connection, i.e. one MCP server process / agent.</summary>
+        private sealed class ClientSession
+        {
+            public ClientSession(string endpoint)
+            {
+                Id = Guid.NewGuid().ToString("N");
+                Name = endpoint ?? Id;
+            }
+
+            public string Id { get; }
+            public string Name { get; private set; }
+
+            // The MCP server may send a readable name ("client" member of the request).
+            public void UpdateName(string name)
+            {
+                if (!string.IsNullOrWhiteSpace(name)) Name = name.Length > 120 ? name.Substring(0, 120) : name;
+            }
         }
 
         private static string CreateErrorResponse(string id, int code, string message)

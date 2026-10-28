@@ -46,6 +46,6 @@ public class JZPoint
     /// </summary>
     public static XYZ ToXYZ(JZPoint jzPoint)
     {
-        return new XYZ(jzPoint.X / 304.8, jzPoint.Y / 304.8, jzPoint.Z / 304.8);
+        return new XYZ(ProjectUnits.ToInternalLength(jzPoint.X), ProjectUnits.ToInternalLength(jzPoint.Y), ProjectUnits.ToInternalLength(jzPoint.Z));
     }
 }

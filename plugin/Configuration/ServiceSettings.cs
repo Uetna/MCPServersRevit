@@ -22,5 +22,12 @@ namespace revit_mcp_plugin.Configuration
         [JsonProperty("port")]
         public int Port { get; set; } = 8964;
 
+        /// <summary>
+        /// Seconds of inactivity after which an MCP client loses the exclusive right to modify
+        /// the model (see WriteLease). 0 disables the protection.
+        /// </summary>
+        [JsonProperty("writeLeaseSeconds")]
+        public int WriteLeaseSeconds { get; set; } = 120;
+
     }
 }

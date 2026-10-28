@@ -5,34 +5,34 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateDimensionsTool(server: McpServer) {
   server.tool(
     "create_dimensions",
-    "Create dimension annotations in the current Revit view. Supports dimensioning between elements (walls, doors, windows) by element IDs, or between two points with automatic reference detection. All coordinates are in millimeters (mm).",
+    "Create dimension annotations in the current Revit view. Supports dimensioning between elements (walls, doors, windows) by element IDs, or between two points with automatic reference detection. All coordinates are in project length units.",
     {
       dimensions: z
         .array(
           z.object({
             startPoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number().describe("X coordinate in project length units"),
+                y: z.number().describe("Y coordinate in project length units"),
+                z: z.number().describe("Z coordinate in project length units"),
               })
-              .describe("Start point of the dimension line (mm)"),
+              .describe("Start point of the dimension line (project length units)"),
             endPoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number().describe("X coordinate in project length units"),
+                y: z.number().describe("Y coordinate in project length units"),
+                z: z.number().describe("Z coordinate in project length units"),
               })
-              .describe("End point of the dimension line (mm)"),
+              .describe("End point of the dimension line (project length units)"),
             linePoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number().describe("X coordinate in project length units"),
+                y: z.number().describe("Y coordinate in project length units"),
+                z: z.number().describe("Z coordinate in project length units"),
               })
               .optional()
               .describe(
-                "Location of the dimension line itself (mm). If not provided, defaults to midpoint offset by 1 foot"
+                "Location of the dimension line itself (project length units). If not provided, defaults to midpoint offset by 1 foot"
               ),
             elementIds: z
               .array(z.number())

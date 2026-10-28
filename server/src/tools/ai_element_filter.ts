@@ -46,7 +46,7 @@ export function registerAIElementFilterTool(server: McpServer) {
             }),
           })
           .optional()
-          .describe("The minimum point coordinates (in mm) for spatial bounding box filtering. When set along with boundingBoxMax, only elements that intersect with this bounding box will be returned. Set to null to disable this filter."),
+          .describe("The minimum point coordinates (in project length units) for spatial bounding box filtering. When set along with boundingBoxMax, only elements that intersect with this bounding box will be returned. Set to null to disable this filter."),
         boundingBoxMax: z
           .object({
             p0: z.object({
@@ -61,13 +61,13 @@ export function registerAIElementFilterTool(server: McpServer) {
             }),
           })
           .optional()
-          .describe("The maximum point coordinates (in mm) for spatial bounding box filtering. When set along with boundingBoxMin, only elements that intersect with this bounding box will be returned. Set to null to disable this filter."),
+          .describe("The maximum point coordinates (in project length units) for spatial bounding box filtering. When set along with boundingBoxMin, only elements that intersect with this bounding box will be returned. Set to null to disable this filter."),
           maxElements: z
           .number()
           .optional()
           .describe("The maximum number of elements to find in a single tool invocation. Default is 50. Values exceeding 50 are not recommended for performance reasons."),
       })
-        .describe("Configuration parameters for the Revit element filter tool. These settings determine which elements will be selected from the Revit project based on various filtering criteria. Multiple filters can be combined to achieve precise element selection. All spatial coordinates should be provided in millimeters."),
+        .describe("Configuration parameters for the Revit element filter tool. These settings determine which elements will be selected from the Revit project based on various filtering criteria. Multiple filters can be combined to achieve precise element selection. All spatial coordinates should be provided in project length units."),
     },
     async (args, extra) => {
       const params = args;

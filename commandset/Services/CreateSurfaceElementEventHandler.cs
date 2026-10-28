@@ -63,10 +63,10 @@ namespace RevitMCPCommandSet.Services
                     Level topLevel = null;
                     double topOffset = -1;  // ft
                     double baseOffset = -1; // ft
-                    baseLevel = doc.FindNearestLevel(data.BaseLevel / 304.8);
-                    baseOffset = (data.BaseOffset + data.BaseLevel) / 304.8 - baseLevel.Elevation;
-                    topLevel = doc.FindNearestLevel((data.BaseLevel + data.BaseOffset + data.Thickness) / 304.8);
-                    topOffset = (data.BaseLevel + data.BaseOffset + data.Thickness) / 304.8 - topLevel.Elevation;
+                    baseLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel));
+                    baseOffset = ProjectUnits.ToInternalLength(data.BaseOffset + data.BaseLevel) - baseLevel.Elevation;
+                    topLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Thickness));
+                    topOffset = ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Thickness) - topLevel.Elevation;
                     if (baseLevel == null)
                         continue;
 
@@ -331,7 +331,7 @@ namespace RevitMCPCommandSet.Services
                                      .OfClass(typeof(FloorType))                    // 仅获取FloorType类
                                      .OfCategory(BuiltInCategory.OST_Floors)        // 仅获取楼板类别
                                      .Cast<FloorType>()                            // 转换为FloorType类型
-                                     .FirstOrDefault(w => w.Name == $"{_floorName}{thickness * 304.8}mm");
+                                     .FirstOrDefault(w => w.Name == $"{_floorName}{Math.Round(thickness * 304.8)}mm");
             if (existingType != null)
                 return existingType;
             // 如果没有找到匹配的楼板类型，创建新的
@@ -351,7 +351,7 @@ namespace RevitMCPCommandSet.Services
 
             // 复制楼板类型
             FloorType newFloorType = null;
-            newFloorType = baseFloorType.Duplicate($"{_floorName}{thickness * 304.8}mm") as FloorType;
+            newFloorType = baseFloorType.Duplicate($"{_floorName}{Math.Round(thickness * 304.8)}mm") as FloorType;
 
             // 设置新楼板类型的厚度
             // 获取构造层设置

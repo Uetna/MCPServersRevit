@@ -19,4 +19,9 @@ export const config = {
    * timeout (120 s for model statistics / material quantities) so the plugin reports first.
    */
   requestTimeoutMs: intFromEnv("REVIT_MCP_TIMEOUT_MS", 150000),
+  /**
+   * Name shown to other agents while this client holds the Revit write lease. Defaults to the
+   * MCP host name reported at initialization (e.g. "claude-code") plus the process id.
+   */
+  clientName: process.env.REVIT_MCP_CLIENT_NAME || "",
 };

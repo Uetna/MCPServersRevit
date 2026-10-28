@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerGetCurrentViewElementsTool(server: McpServer) {
   server.tool(
     "get_current_view_elements",
-    "Get elements from the current active view in Revit. You can filter by model categories (like Walls, Floors) or annotation categories (like Dimensions, Text). Use includeHidden to show/hide invisible elements and limit to control the number of returned elements. Without categories a default set of common model and annotation categories is used. Coordinates and lengths are returned in millimetres.",
+    "Get elements from the current active view in Revit. You can filter by model categories (like Walls, Floors) or annotation categories (like Dimensions, Text). Use includeHidden to show/hide invisible elements and limit to control the number of returned elements. Without categories a default set of common model and annotation categories is used. Coordinates and lengths are returned in the project length units (see get_project_units). Use parameterNames to add any parameters (built-in, shared or project) to each element.",
     {
       modelCategoryList: z
         .array(z.string())
@@ -27,6 +27,12 @@ export function registerGetCurrentViewElementsTool(server: McpServer) {
         .number()
         .optional()
         .describe("Maximum number of elements to return"),
+      parameterNames: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Extra parameters to return for each element: a BuiltInParameter name (ALL_MODEL_MARK), a shared parameter GUID, or a parameter name as shown in Revit (project, shared or family parameter). Instance first, then type. Numbers are in project units."
+        ),
     },
     async (args, extra) => {
       const params = {
@@ -34,6 +40,7 @@ export function registerGetCurrentViewElementsTool(server: McpServer) {
         annotationCategoryList: args.annotationCategoryList || [],
         includeHidden: args.includeHidden || false,
         limit: args.limit || 100,
+        parameterNames: args.parameterNames || [],
       };
 
       try {

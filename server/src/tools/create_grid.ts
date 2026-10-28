@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateGridTool(server: McpServer) {
   server.tool(
     "create_grid",
-    "Create a grid system in Revit with smart spacing generation. Supports both X-axis (vertical) and Y-axis (horizontal) grids with customizable naming styles (alphabetic A,B,C or numeric 1,2,3). All units are in millimeters (mm).",
+    "Create a grid system in Revit with smart spacing generation. Supports both X-axis (vertical) and Y-axis (horizontal) grids with customizable naming styles (alphabetic A,B,C or numeric 1,2,3). All lengths and coordinates are in the project length units (Manage > Project Units; call get_project_units to check).",
     {
       xCount: z
         .number()
@@ -15,7 +15,7 @@ export function registerCreateGridTool(server: McpServer) {
       xSpacing: z
         .number()
         .positive()
-        .describe("Spacing between X-axis grid lines in millimeters"),
+        .describe("Spacing between X-axis grid lines in project length units"),
       xStartLabel: z
         .string()
         .default("A")
@@ -32,7 +32,7 @@ export function registerCreateGridTool(server: McpServer) {
       ySpacing: z
         .number()
         .positive()
-        .describe("Spacing between Y-axis grid lines in millimeters"),
+        .describe("Spacing between Y-axis grid lines in project length units"),
       yStartLabel: z
         .string()
         .default("1")
@@ -44,31 +44,31 @@ export function registerCreateGridTool(server: McpServer) {
       xExtentMin: z
         .number()
         .default(0)
-        .describe("Minimum extent along X-axis in mm (where Y-axis grids start)"),
+        .describe("Minimum extent along X-axis in project length units (where Y-axis grids start)"),
       xExtentMax: z
         .number()
         .default(50000)
-        .describe("Maximum extent along X-axis in mm (where Y-axis grids end)"),
+        .describe("Maximum extent along X-axis in project length units (where Y-axis grids end)"),
       yExtentMin: z
         .number()
         .default(0)
-        .describe("Minimum extent along Y-axis in mm (where X-axis grids start)"),
+        .describe("Minimum extent along Y-axis in project length units (where X-axis grids start)"),
       yExtentMax: z
         .number()
         .default(50000)
-        .describe("Maximum extent along Y-axis in mm (where X-axis grids end)"),
+        .describe("Maximum extent along Y-axis in project length units (where X-axis grids end)"),
       elevation: z
         .number()
         .default(0)
-        .describe("Elevation for grid lines in mm (Z-coordinate)"),
+        .describe("Elevation for grid lines in project length units (Z-coordinate)"),
       xStartPosition: z
         .number()
         .default(0)
-        .describe("Starting position for first X-axis grid in mm"),
+        .describe("Starting position for first X-axis grid in project length units"),
       yStartPosition: z
         .number()
         .default(0)
-        .describe("Starting position for first Y-axis grid in mm"),
+        .describe("Starting position for first Y-axis grid in project length units"),
     },
     async (args, extra) => {
       const params = {

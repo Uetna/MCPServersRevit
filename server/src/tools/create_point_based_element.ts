@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreatePointBasedElementTool(server: McpServer) {
   server.tool(
     "create_point_based_element",
-    "Create one or more point-based elements in Revit such as doors, windows, or furniture. Supports batch creation with detailed parameters including family type ID, position, dimensions, and level information. All units are in millimeters (mm).",
+    "Create one or more point-based elements in Revit such as doors, windows, or furniture. Supports batch creation with detailed parameters including family type ID, position, dimensions, and level information. All lengths and coordinates are in the project length units (Manage > Project Units; call get_project_units to check).",
     {
       data: z
         .array(
@@ -26,9 +26,9 @@ export function registerCreatePointBasedElementTool(server: McpServer) {
               .describe(
                 "The position coordinates where the element will be placed"
               ),
-            width: z.number().describe("Width of the element in mm"),
-            depth: z.number().optional().describe("Depth of the element in mm"),
-            height: z.number().describe("Height of the element in mm"),
+            width: z.number().describe("Width of the element in project length units"),
+            depth: z.number().optional().describe("Depth of the element in project length units"),
+            height: z.number().describe("Height of the element in project length units"),
             baseLevel: z.number().describe("Base level height"),
             baseOffset: z.number().describe("Offset from the base level"),
             rotation: z

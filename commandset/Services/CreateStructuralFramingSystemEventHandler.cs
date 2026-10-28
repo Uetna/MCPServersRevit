@@ -96,7 +96,7 @@ namespace RevitMCPCommandSet.Services
                     trans.Start();
 
                     // 1. Resolve Level - Find nearest existing level to the target elevation (like walls do)
-                    Level level = doc.FindNearestLevel(Parameters.Elevation / 304.8);
+                    Level level = doc.FindNearestLevel(ProjectUnits.ToInternalLength(Parameters.Elevation));
                     if (level == null)
                     {
                         // Fallback: try to find any level
@@ -111,7 +111,7 @@ namespace RevitMCPCommandSet.Services
                     }
 
                     // Add info about which level was selected
-                    double levelElevationMm = level.Elevation * 304.8;
+                    double levelElevationMm = ProjectUnits.FromInternalLength(level.Elevation);
                     warnings.Add($"Using level '{level.Name}' at elevation {levelElevationMm:F0}mm (nearest to target elevation {Parameters.Elevation:F0}mm)");
 
                     // 2. Build rectangular profile (4 curves in closed loop)
@@ -141,7 +141,7 @@ namespace RevitMCPCommandSet.Services
 
                     // 7. Set layout rule (fixed distance + justification)
                     LayoutRuleFixedDistance layoutRule = new LayoutRuleFixedDistance(
-                        Parameters.Spacing / 304.8,  // spacing in feet
+                        ProjectUnits.ToInternalLength(Parameters.Spacing),  // spacing in feet
                         MapJustifyString(Parameters.Justify)  // justification type
                     );
                     beamSystem.LayoutRule = layoutRule;
@@ -151,7 +151,7 @@ namespace RevitMCPCommandSet.Services
 
                     // 8. Apply elevation offset to all beams using Z_OFFSET_VALUE parameter
                     // Note: BeamSystem.Create() places beams at level elevation. We use Z_OFFSET_VALUE to offset them.
-                    double elevationOffsetFt = (Parameters.Elevation / 304.8) - level.Elevation;
+                    double elevationOffsetFt = (ProjectUnits.ToInternalLength(Parameters.Elevation)) - level.Elevation;
 
                     if (Math.Abs(elevationOffsetFt) > 0.001) // Only apply if there's a meaningful offset
                     {
@@ -203,7 +203,7 @@ namespace RevitMCPCommandSet.Services
 #endif
 
                     // 10. Read actual spacing from layout rule
-                    double actualSpacing = layoutRule.Spacing * 304.8;  // ft to mm
+                    double actualSpacing = ProjectUnits.FromInternalLength(layoutRule.Spacing);  // ft to mm
 
                     // 11. Create result with detailed summary
                     double widthMm = Parameters.XMax - Parameters.XMin;
@@ -405,11 +405,11 @@ namespace RevitMCPCommandSet.Services
         private List<Curve> BuildRectangularProfile(double xMin, double xMax, double yMin, double yMax, double elevation)
         {
             // Convert mm to feet
-            double xMinFt = xMin / 304.8;
-            double xMaxFt = xMax / 304.8;
-            double yMinFt = yMin / 304.8;
-            double yMaxFt = yMax / 304.8;
-            double elevFt = elevation / 304.8;
+            double xMinFt = ProjectUnits.ToInternalLength(xMin);
+            double xMaxFt = ProjectUnits.ToInternalLength(xMax);
+            double yMinFt = ProjectUnits.ToInternalLength(yMin);
+            double yMaxFt = ProjectUnits.ToInternalLength(yMax);
+            double elevFt = ProjectUnits.ToInternalLength(elevation);
 
             List<Curve> curves = new List<Curve>();
 

@@ -63,10 +63,10 @@ namespace RevitMCPCommandSet.Services
                     Level topLevel = null;
                     double topOffset = -1;  // ft
                     double baseOffset = -1; // ft
-                    baseLevel = doc.FindNearestLevel(data.BaseLevel / 304.8);
-                    baseOffset = (data.BaseOffset + data.BaseLevel) / 304.8 - baseLevel.Elevation;
-                    topLevel = doc.FindNearestLevel((data.BaseLevel + data.BaseOffset + data.Height) / 304.8);
-                    topOffset = (data.BaseLevel + data.BaseOffset + data.Height) / 304.8 - topLevel.Elevation;
+                    baseLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel));
+                    baseOffset = ProjectUnits.ToInternalLength(data.BaseOffset + data.BaseLevel) - baseLevel.Elevation;
+                    topLevel = doc.FindNearestLevel(ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Height));
+                    topOffset = ProjectUnits.ToInternalLength(data.BaseLevel + data.BaseOffset + data.Height) - topLevel.Elevation;
                     if (baseLevel == null)
                         continue;
 

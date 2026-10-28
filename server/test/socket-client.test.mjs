@@ -149,6 +149,43 @@ test("exposes Revit warnings next to the result", async () => {
   }
 });
 
+test("sends the client name so the plugin can name the write-lease holder", async () => {
+  const seen = [];
+  const plugin = await startFakePlugin((req, socket) => {
+    seen.push(req.client);
+    reply(socket, req.id, "ok");
+  });
+  const client = new RevitClientConnection("127.0.0.1", plugin.port, { clientName: "agent A" });
+  try {
+    await client.sendCommand("get_project_units");
+    client.clientName = "claude-code (pid 1)";
+    await client.sendCommand("get_project_units");
+    assert.deepEqual(seen, ["agent A", "claude-code (pid 1)"]);
+  } finally {
+    client.disconnect();
+    await plugin.close();
+  }
+});
+
+test("surfaces a write-lease refusal as RevitCommandError -33004", async () => {
+  const plugin = await startFakePlugin((req, socket) =>
+    socket.write(JSON.stringify({
+      jsonrpc: "2.0",
+      id: req.id,
+      error: { code: -33004, message: "The Revit model is being modified by another MCP client 'agent A'" },
+    }) + "\n"));
+  const client = new RevitClientConnection("127.0.0.1", plugin.port);
+  try {
+    await assert.rejects(
+      client.sendCommand("set_element_parameters", { changes: [] }),
+      (e) => e instanceof RevitCommandError && e.code === -33004 && /agent A/.test(e.message)
+    );
+  } finally {
+    client.disconnect();
+    await plugin.close();
+  }
+});
+
 test("reports a clear error when Revit is not listening", async () => {
   const probe = net.createServer();
   await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));

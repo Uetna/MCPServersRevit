@@ -275,7 +275,7 @@ namespace RevitMCPCommandSet.Services
                 BoundingBoxIntersectsFilter boundingBoxFilter = new BoundingBoxIntersectsFilter(outline);
                 filters.Add(boundingBoxFilter);
                 appliedFilters.Add($"空间范围过滤：Min({settings.BoundingBoxMin.X:F2}, {settings.BoundingBoxMin.Y:F2}, {settings.BoundingBoxMin.Z:F2}), " +
-                                  $"Max({settings.BoundingBoxMax.X:F2}, {settings.BoundingBoxMax.Y:F2}, {settings.BoundingBoxMax.Z:F2}) mm");
+                                  $"Max({settings.BoundingBoxMax.X:F2}, {settings.BoundingBoxMax.Y:F2}, {settings.BoundingBoxMax.Z:F2}) {ProjectUnits.LengthUnit}");
             }
             // 应用组合过滤器
             if (filters.Count > 0)
@@ -493,7 +493,7 @@ namespace RevitMCPCommandSet.Services
                 if (element is Level level)
                 {
                     // 转换为mm
-                    info.Elevation = level.Elevation * 304.8;
+                    info.Elevation = ProjectUnits.FromInternalLength(level.Elevation);
                 }
                 // 处理轴网
                 else if (element is Grid grid)
@@ -505,8 +505,8 @@ namespace RevitMCPCommandSet.Services
                         XYZ end = curve.GetEndPoint(1);
                         // 创建JZLine（转换为mm）
                         info.GridLine = new JZLine(
-                            start.X * 304.8, start.Y * 304.8, start.Z * 304.8,
-                            end.X * 304.8, end.Y * 304.8, end.Z * 304.8);
+                            ProjectUnits.FromInternalLength(start.X), ProjectUnits.FromInternalLength(start.Y), ProjectUnits.FromInternalLength(start.Z),
+                            ProjectUnits.FromInternalLength(end.X), ProjectUnits.FromInternalLength(end.Y), ProjectUnits.FromInternalLength(end.Z));
                     }
                 }
 
@@ -549,7 +549,7 @@ namespace RevitMCPCommandSet.Services
                 {
                     info.Number = room.Number;
                     // 转换为mm³
-                    info.Volume = room.Volume * Math.Pow(304.8, 3);
+                    info.Volume = ProjectUnits.FromInternalVolume(room.Volume);
                 }
                 else if (element is Area area)
                 {
@@ -561,7 +561,7 @@ namespace RevitMCPCommandSet.Services
                 if (areaParam != null && areaParam.HasValue)
                 {
                     // 转换为mm²
-                    info.Area = areaParam.AsDouble() * Math.Pow(304.8, 2);
+                    info.Area = ProjectUnits.FromInternalArea(areaParam.AsDouble());
                 }
 
                 // 获取周长
@@ -569,7 +569,7 @@ namespace RevitMCPCommandSet.Services
                 if (perimeterParam != null && perimeterParam.HasValue)
                 {
                     // 转换为mm
-                    info.Perimeter = perimeterParam.AsDouble() * 304.8;
+                    info.Perimeter = ProjectUnits.FromInternalLength(perimeterParam.AsDouble());
                 }
 
                 // 获取标高
@@ -619,7 +619,7 @@ namespace RevitMCPCommandSet.Services
                     {
                         Id = level.Id.GetIntValue(),
                         Name = level.Name,
-                        Height = level.Elevation * 304.8 // 转换为mm
+                        Height = ProjectUnits.FromInternalLength(level.Elevation) // 转换为mm
                     };
                 }
 
@@ -694,9 +694,9 @@ namespace RevitMCPCommandSet.Services
                     XYZ position = textNote.Coord;
                     // 转换为mm
                     info.Position = new JZPoint(
-                        position.X * 304.8,
-                        position.Y * 304.8,
-                        position.Z * 304.8);
+                        ProjectUnits.FromInternalLength(position.X),
+                        ProjectUnits.FromInternalLength(position.Y),
+                        ProjectUnits.FromInternalLength(position.Z));
                 }
                 // 处理尺寸标注
                 else if (element is Dimension dimension)
@@ -705,9 +705,9 @@ namespace RevitMCPCommandSet.Services
                     XYZ origin = dimension.Origin;
                     // 转换为mm
                     info.Position = new JZPoint(
-                        origin.X * 304.8,
-                        origin.Y * 304.8,
-                        origin.Z * 304.8);
+                        ProjectUnits.FromInternalLength(origin.X),
+                        ProjectUnits.FromInternalLength(origin.Y),
+                        ProjectUnits.FromInternalLength(origin.Z));
                 }
                 // 处理其他注释元素
                 else if (element is AnnotationSymbol annotationSymbol)
@@ -717,9 +717,9 @@ namespace RevitMCPCommandSet.Services
                         XYZ position = locationPoint.Point;
                         // 转换为mm
                         info.Position = new JZPoint(
-                            position.X * 304.8,
-                            position.Y * 304.8,
-                            position.Z * 304.8);
+                            ProjectUnits.FromInternalLength(position.X),
+                            ProjectUnits.FromInternalLength(position.Y),
+                            ProjectUnits.FromInternalLength(position.Z));
                     }
                 }
                 return info;
@@ -786,9 +786,9 @@ namespace RevitMCPCommandSet.Services
                         XYZ point = location.Point;
                         // 转换为mm
                         info.Position = new JZPoint(
-                            point.X * 304.8,
-                            point.Y * 304.8,
-                            point.Z * 304.8);
+                            ProjectUnits.FromInternalLength(point.X),
+                            ProjectUnits.FromInternalLength(point.Y),
+                            ProjectUnits.FromInternalLength(point.Z));
                     }
                 }
 
@@ -880,7 +880,7 @@ namespace RevitMCPCommandSet.Services
                 return new ParameterInfo
                 {
                     Name = "厚度",
-                    Value = $"{thicknessParam.AsDouble() * 304.8}"
+                    Value = $"{ProjectUnits.FromInternalLength(thicknessParam.AsDouble())}"
                 };
             }
             return null;
@@ -942,7 +942,7 @@ namespace RevitMCPCommandSet.Services
                     {
                         Id = level.Id.GetIntValue(),
                         Name = level.Name,
-                        Height = level.Elevation * 304.8
+                        Height = ProjectUnits.FromInternalLength(level.Elevation)
                     };
                     return levelInfo;
                 }
@@ -970,13 +970,13 @@ namespace RevitMCPCommandSet.Services
                 return new BoundingBoxInfo
                 {
                     Min = new JZPoint(
-                        bbox.Min.X * 304.8,
-                        bbox.Min.Y * 304.8,
-                        bbox.Min.Z * 304.8),
+                        ProjectUnits.FromInternalLength(bbox.Min.X),
+                        ProjectUnits.FromInternalLength(bbox.Min.Y),
+                        ProjectUnits.FromInternalLength(bbox.Min.Z)),
                     Max = new JZPoint(
-                        bbox.Max.X * 304.8,
-                        bbox.Max.Y * 304.8,
-                        bbox.Max.Z * 304.8)
+                        ProjectUnits.FromInternalLength(bbox.Max.X),
+                        ProjectUnits.FromInternalLength(bbox.Max.Y),
+                        ProjectUnits.FromInternalLength(bbox.Max.Z))
                 };
             }
             catch

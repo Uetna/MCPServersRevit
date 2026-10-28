@@ -3,6 +3,8 @@ import * as net from "net";
 export interface RevitClientOptions {
   connectTimeoutMs?: number;
   requestTimeoutMs?: number;
+  /** Readable client name sent with every request (shown in write-lease refusals). */
+  clientName?: string;
 }
 
 interface PendingRequest {
@@ -32,6 +34,8 @@ export class RevitClientConnection {
   readonly port: number;
   private readonly connectTimeoutMs: number;
   private readonly requestTimeoutMs: number;
+  /** Readable name of this MCP client, sent as "client" with every request. */
+  clientName: string;
 
   private socket: net.Socket | null = null;
   private connecting: Promise<net.Socket> | null = null;
@@ -44,6 +48,7 @@ export class RevitClientConnection {
     this.port = port;
     this.connectTimeoutMs = options.connectTimeoutMs ?? 5000;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 150000;
+    this.clientName = options.clientName ?? `mcp-server-for-revit (pid ${process.pid})`;
   }
 
   get isConnected(): boolean {
@@ -65,7 +70,7 @@ export class RevitClientConnection {
   async sendCommand(method: string, params: any = {}, timeoutMs?: number): Promise<any> {
     const socket = await this.ensureSocket();
     const id = `${Date.now()}-${this.nextId++}`;
-    const payload = JSON.stringify({ jsonrpc: "2.0", method, params, id }) + "\n";
+    const payload = JSON.stringify({ jsonrpc: "2.0", method, params, id, client: this.clientName }) + "\n";
     const timeout = timeoutMs ?? this.requestTimeoutMs;
 
     return new Promise((resolve, reject) => {

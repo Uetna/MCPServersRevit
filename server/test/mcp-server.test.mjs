@@ -40,7 +40,16 @@ test("lists all tools and flags failures with isError", async () => {
   try {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    for (const expected of ["send_code_to_revit", "get_current_view_elements", "create_level", "delete_element"]) {
+    for (const expected of [
+      "send_code_to_revit",
+      "get_current_view_elements",
+      "create_level",
+      "delete_element",
+      "get_project_units",
+      "get_element_parameters",
+      "set_element_parameters",
+      "revit_write_lease",
+    ]) {
       assert.ok(names.includes(expected), `missing tool ${expected}`);
     }
 

@@ -10,6 +10,7 @@ export function getRevitClient(): RevitClientConnection {
     sharedClient = new RevitClientConnection(config.revitHost, config.revitPort, {
       connectTimeoutMs: config.connectTimeoutMs,
       requestTimeoutMs: config.requestTimeoutMs,
+      clientName: config.clientName || undefined,
     });
   }
   return sharedClient;

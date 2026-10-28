@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerCreateLevelTool(server: McpServer) {
   server.tool(
     "create_level",
-    "Create one or more levels in Revit at specified elevations. Levels define horizontal planes in the building and are used to host floor plans, ceilings, and other level-based elements. All elevation units are in millimeters (mm).",
+    "Create one or more levels in Revit at specified elevations. Levels define horizontal planes in the building and are used to host floor plans, ceilings, and other level-based elements. All elevation units are in project length units.",
     {
       data: z
         .array(
@@ -15,7 +15,7 @@ export function registerCreateLevelTool(server: McpServer) {
               .describe("Name of the level (e.g., 'Level 2', 'Roof', 'Basement')"),
             elevation: z
               .number()
-              .describe("Elevation of the level in millimeters (mm) from project origin"),
+              .describe("Elevation of the level in project length units from project origin"),
             description: z
               .string()
               .optional()
@@ -31,19 +31,19 @@ export function registerCreateLevelTool(server: McpServer) {
             computationHeight: z
               .number()
               .optional()
-              .describe("Optional computation height in mm"),
+              .describe("Optional computation height in project length units"),
             viewPlanOffset: z
               .number()
               .optional()
-              .describe("Optional view plan offset in mm"),
+              .describe("Optional view plan offset in project length units"),
             viewSectionOffset: z
               .number()
               .optional()
-              .describe("Optional view section offset in mm"),
+              .describe("Optional view section offset in project length units"),
             viewElevationOffset: z
               .number()
               .optional()
-              .describe("Optional view elevation offset in mm"),
+              .describe("Optional view elevation offset in project length units"),
             createFloorPlan: z
               .boolean()
               .default(true)

@@ -3,6 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -30,7 +32,11 @@ async function connect(env) {
 
 test("lists all tools and flags failures with isError", async () => {
   const port = await freePort();
-  const client = await connect({ REVIT_MCP_PORT: String(port), REVIT_MCP_CONNECT_TIMEOUT_MS: "1000" });
+  const client = await connect({
+    REVIT_MCP_PORT: String(port),
+    REVIT_MCP_CONNECT_TIMEOUT_MS: "1000",
+    REVIT_MCP_DB: join(tmpdir(), `revit-mcp-test-${process.pid}.db`),
+  });
   try {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);

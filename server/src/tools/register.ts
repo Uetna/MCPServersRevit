@@ -1,48 +1,53 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+
+// Explicit list instead of scanning the directory: build artefacts (.d.ts, .map, stale files)
+// can no longer register tools by accident, and a missing module is reported by name.
+const TOOL_MODULES = [
+  "ai_element_filter",
+  "analyze_model_statistics",
+  "color_elements",
+  "create_dimensions",
+  "create_grid",
+  "create_level",
+  "create_line_based_element",
+  "create_point_based_element",
+  "create_room",
+  "create_structural_framing_system",
+  "create_surface_based_element",
+  "delete_element",
+  "export_room_data",
+  "get_available_family_types",
+  "get_current_view_elements",
+  "get_current_view_info",
+  "get_material_quantities",
+  "get_selected_elements",
+  "operate_element",
+  "query_stored_data",
+  "say_hello",
+  "send_code_to_revit",
+  "store_project_data",
+  "store_room_data",
+  "tag_all_rooms",
+  "tag_all_walls",
+];
 
 export async function registerTools(server: McpServer) {
-  // 获取当前文件的目录路径
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  // 读取tools目录下的所有文件
-  const files = fs.readdirSync(__dirname);
-
-  // 过滤出.ts或.js文件，但排除index文件和register文件
-  const toolFiles = files.filter(
-    (file) =>
-      (file.endsWith(".ts") || file.endsWith(".js")) &&
-      file !== "index.ts" &&
-      file !== "index.js" &&
-      file !== "register.ts" &&
-      file !== "register.js"
-  );
-
-  // 动态导入并注册每个工具
-  for (const file of toolFiles) {
+  for (const name of TOOL_MODULES) {
     try {
-      // 构建导入路径
-      const importPath = `./${file.replace(/\.(ts|js)$/, ".js")}`;
-
-      // 动态导入模块
-      const module = await import(importPath);
-
-      // 查找并执行注册函数
+      // Imported one by one so a failing optional dependency (e.g. the native SQLite module
+      // used by the store_* tools) disables only its own tools, not the whole server.
+      const module = await import(`./${name}.js`);
       const registerFunctionName = Object.keys(module).find(
         (key) => key.startsWith("register") && typeof module[key] === "function"
       );
 
       if (registerFunctionName) {
         module[registerFunctionName](server);
-        console.error(`已注册工具: ${file}`);
       } else {
-        console.warn(`警告: 在文件 ${file} 中未找到注册函数`);
+        console.error(`Tool module ${name} has no register function`);
       }
     } catch (error) {
-      console.error(`注册工具 ${file} 时出错:`, error);
+      console.error(`Failed to register tool ${name}:`, error);
     }
   }
 }

@@ -1,13 +1,18 @@
 import Database from 'better-sqlite3';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { mkdirSync } from 'fs';
+import { homedir } from 'os';
+import { dirname, join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Database path: REVIT_MCP_DB, otherwise a per-user data folder. The package folder is not
+// used because `npx` runs the server from a disposable npm cache.
+function resolveDbPath(): string {
+  if (process.env.REVIT_MCP_DB) return process.env.REVIT_MCP_DB;
+  const base = process.env.APPDATA || process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
+  return join(base, 'mcp-server-for-revit', 'revit-data.db');
+}
 
-// Database path (stored in project root)
-const DB_PATH = join(__dirname, '..', '..', 'revit-data.db');
+const DB_PATH = resolveDbPath();
+mkdirSync(dirname(DB_PATH), { recursive: true });
 
 // Initialize database connection
 export const db = new Database(DB_PATH);

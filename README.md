@@ -92,6 +92,20 @@ Restart Claude Desktop. When you see the hammer icon, the MCP server is connecte
 
 ![Claude Desktop connection](./assets/claude.png)
 
+### Connection settings
+
+The Revit plugin listens on `127.0.0.1:8964` (loopback only). Change the port in the plugin's
+`Commands/commandRegistry.json` (`"settings": { "port": 8964 }`) and pass the same value to the
+MCP server through the `env` block of the client configuration:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `REVIT_MCP_PORT` | `8964` | Port of the Revit plugin |
+| `REVIT_MCP_HOST` | `127.0.0.1` | Host of the Revit plugin |
+| `REVIT_MCP_TIMEOUT_MS` | `150000` | Time to wait for a command result |
+| `REVIT_MCP_CONNECT_TIMEOUT_MS` | `5000` | Time to connect to Revit |
+| `REVIT_MCP_DB` | `%APPDATA%\mcp-server-for-revit\revit-data.db` | SQLite file used by the `store_*` / `query_*` tools |
+
 ## Revit Plugin Setup
 
 If using a release ZIP, the plugin is already included. For manual installation:
@@ -229,6 +243,7 @@ public class MyTests : RevitApiTest
 cd server
 npm install
 npm run build
+npm test   # transport + stdio tests against a fake Revit plugin, no Revit needed
 ```
 
 The server compiles TypeScript to `server/build/`. During development you can run it directly with `npx tsx server/src/index.ts`.
